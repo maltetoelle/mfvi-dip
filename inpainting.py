@@ -70,7 +70,7 @@ def inpainting(img_name: str = 'skin_lesion',
     seed:
     net_specs: dropout_type, dropout_p, prior_mu, prior_sigma, prior_pi, kl_type, beta_type, sgld, burnin_iter, mcmc_iter
     """
-
+    
     torch.manual_seed(seed)
     np.random.seed(seed)
 
