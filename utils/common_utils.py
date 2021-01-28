@@ -37,6 +37,8 @@ def get_fname(img_name):
         fname = 'data/sr/zebra_GT.png'
     elif img_name == 'library':
         fname = 'data/inpainting/library.png'
+    elif img_name == 'skin_lesion':
+        fname = 'data/inpainting/ISIC_0000095_downsampled.jpg'
     return fname
 
 def crop_image(img, d=32):

@@ -49,7 +49,7 @@ reg_noise_std = 0.
 exp_weight = 0.99
 
 
-def inpainting(img_name: str = 'library',
+def inpainting(img_name: str = 'skin_lesion',
                criterion: str = 'nll',
                num_iter: int = 50000,
                num_scales: int = 6,

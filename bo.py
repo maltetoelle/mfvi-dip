@@ -25,7 +25,7 @@ from inpainting import inpainting
 def bo(n_random: int = 5,
        trials: int = 15,
        minimize: bool = True,
-       num_iter_eval_fn: int = 10000,
+       num_iter_eval_fn: int = 20000,
        metric: str = "discr_mse_uncert",
        img_name: str = "xray",
        task: str = 'denoising',
@@ -72,29 +72,13 @@ def bo(n_random: int = 5,
                      path_log_dir=path_log_dir,
                      gpu=gpu,
                      **kwargs)
-        
+
         # metric = config["metric"]
         if metric[:4] == "psnr":
             psnr = results[metric]
-            return {mertic: (torch.mean(psnr[-100:]), torch.std(psnr[-100:]))}
+            return {metric: (np.mean(psnr[-100:]), np.std(psnr[-100:]))}
         else:
             return {metric: (results[metric], 0.0)}
-
-        # if config["metric"] == "discr_mse_uncert":
-        #     return {'discr_mse_uncert': (results["discr_mse_uncert"], 0.0)}
-        # elif config["metric"] == "lpips":
-        #     return {"lpips": (results["lpips"], 0.0)}
-        # elif config["metric"] == "uce":
-        #     return {"uce": (results["uce"], 0.0)}
-        # elif config["metric"] == "psnr_gt_sm":
-        #     psnr = results["psnr_gt_sm"]
-        #     return {"psnr_gt_sm": (torch.mean(psnr[-100:]), torch.std(psnr[-100:]))}
-        # elif config["metric"] == "psnr_gt":
-        #     psnr = results["psnr_gt"]
-        #     return {"psnr_gt": (torch.mean(psnr[-100:]), torch.std(psnr[-100:]))}
-        # elif config["metric"] == "psnr_noisy":
-        #     psnr = results["psnr_noisy"]
-        #     return {"psnr_noisy": (torch.mean(psnr[-100:]), torch.std(psnr[-100:]))}
 
 
     search_space = SearchSpace(
