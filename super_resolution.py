@@ -84,7 +84,7 @@ def super_resolution(img_name: str = 'xray',
             info = net_specs.copy()
             info["criterion"] = criterion
             info["factor"] = factor
-            info["kernel"] = kernel
+            info["kernel"] = kernel_type
             json.dump(info, f, indent=4)
 
     imgs = get_imgs(img_name, 'super_resolution', imsize=imsize, factor=factor, enforce_div32=enforce_div32)
