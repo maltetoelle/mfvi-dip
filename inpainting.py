@@ -81,7 +81,7 @@ def inpainting(img_name: str = 'skin_lesion',
     if path_log_dir is None:
         path_log_dir = '/media/fastdata/toelle/logs_midl_inp/%s_%s_%s' % ('_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
     else:
-        path_log_dir = '/media/fastdata/toelle/%s/%s_%s_%s' % (path_log_dir, '_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
+        path_log_dir = '%s/%s_%s_%s' % (path_log_dir, '_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
 
     if platform.system() == 'Linux':
         os.mkdir(path_log_dir)

@@ -31,6 +31,7 @@ def bo(n_random: int = 5,
        task: str = 'denoising',
        config: str = "bo",
        save_trials: bool = True,
+       log_dir: str = "/media/fastdata/toelle",
        gpu: int = 1,
        seed: int = 42,
        **kwargs):
@@ -42,16 +43,20 @@ def bo(n_random: int = 5,
 
     if task == "denoising":
         fn = denoising
-        path_log_dir = "bo_den"
+        path_log_dir = "/bo_den/"
     elif task == "super_resolution":
         fn = super_resolution
-        path_log_dir = "bo_sr"
+        path_log_dir = "/bo_sr/"
     elif task == "inpainting":
         fn = inpainting
-        path_log_dir = "bo_inp"
-    path_log_dir += '/' + datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+        path_log_dir = "/bo_inp/"
+    if not os.path.exists(log_dir + path_log_dir):
+        os.mkdir(log_dir + path_log_dir)
+    path_log_dir += datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
     if save_trials:
-        os.mkdir('/media/fastdata/toelle/' + path_log_dir)
+        path_log_dir = log_dir + path_log_dir
+        os.mkdir(path_log_dir)
+        print(path_log_dir)
     # fn = denoising if task == 'denoising' else super_resolution
 
     NET_SPECS = config["net_specs"]

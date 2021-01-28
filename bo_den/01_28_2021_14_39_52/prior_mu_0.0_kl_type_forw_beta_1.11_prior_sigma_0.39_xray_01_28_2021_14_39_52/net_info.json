@@ -1,0 +1,8 @@
+{
+    "prior_mu": 0.0,
+    "kl_type": "forward",
+    "beta": 1.1113491320290977e-05,
+    "prior_sigma": 0.3982287739217281,
+    "criterion": "nll",
+    "sigma": 0.1
+}
