@@ -11,16 +11,19 @@ warnings.filterwarnings("ignore")
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import fire
 from tqdm import tqdm
+import lpips
 
 from models.downsampler import Downsampler
 
 from utils.common_utils import get_noise, np_to_torch
-from train_utils import closure, track_training, get_imgs, save_run, get_net_and_optim
+from train_utils import closure, track_training, get_imgs, save_run, get_net_and_optim, get_mc_preds, track_uncert_sgld
 
-from BayTorch.inference.losses import NLLLoss2d
+from BayTorch.inference.losses import NLLLoss2d, uceloss
+from BayTorch.inference.utils import uncert_regression_gal
 from BayTorch.optimizer.sgld import SGLD
 
 torch.backends.cudnn.enabled = True
@@ -78,7 +81,7 @@ def super_resolution(img_name: str = 'xray',
     else:
         path_log_dir = '%s/%s_%s_%s' % (path_log_dir, '_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
 
-    if platform.system() == 'Linux':
+    if save:
         os.mkdir(path_log_dir)
         with open(path_log_dir + '/net_info.json', 'w') as f:
             info = net_specs.copy()
@@ -145,6 +148,21 @@ def super_resolution(img_name: str = 'xray',
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)
 
     if __name__ != "__main__":
+        img_list = get_mc_preds(net, net_input, mc_iter, post_processor=downsampler)
+        _, _, uncert = uncert_regression_gal(img_list, reduction=None)
+
+        out_torch_mean = torch.mean(torch.cat(img_list, dim=0)[:], dim=0, keepdim=True)
+        mse_err = F.mse_loss(out_torch_mean[:,:-1], img_LR_var, reduction='none')
+
+        uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
+        discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
+
+        loss_fn = lpips.LPIPS(net='alex')
+        lpips_metric = loss_fn(img_LR_var.cpu(), out_torch_mean[:,:-1].cpu())
+
+        results["uce"] = uce
+        results["discr_mse_uncert"] = discr_mse_uncert
+        results["lpips"] = lpips_metric
         return results
 
 

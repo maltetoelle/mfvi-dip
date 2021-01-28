@@ -52,6 +52,7 @@ def bo(n_random: int = 5,
         path_log_dir = "/bo_inp/"
     if not os.path.exists(log_dir + path_log_dir):
         os.mkdir(log_dir + path_log_dir)
+        print('here')
     path_log_dir += datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
     if save_trials:
         path_log_dir = log_dir + path_log_dir

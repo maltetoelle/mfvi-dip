@@ -58,12 +58,14 @@ def closure(net: nn.Module,
     return ELBO, out, out_p
 
 
-def get_mc_preds(net: nn.Module, inputs: Tensor, mc_iter: int = 25) -> List[Tensor]:
+def get_mc_preds(net: nn.Module, inputs: Tensor, mc_iter: int = 25, post_processor: nn.Module = None) -> List[Tensor]:
 
     img_list = []
     with torch.no_grad():
         for _ in range(mc_iter):
             out = net(inputs)
+            if post_processor is not None:
+                out = post_processor(out)
             out[:,:-1] = torch.sigmoid(out[:,:-1])
             out[:,-1:] = torch.exp(-torch.clamp(out[:,-1:], min=-20, max=20))
             img_list.append(out)
