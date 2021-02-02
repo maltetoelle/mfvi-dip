@@ -48,7 +48,7 @@ def closure(net: nn.Module,
         nll = criterion(out_p[:,:-1] * mask, target * mask)
 
     if isinstance(net, MeanFieldVI):
-        ELBO = nll + net.kl # * net.beta
+        ELBO = nll + net.kl() # * net.beta
     else:
         ELBO = nll
 

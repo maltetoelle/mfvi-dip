@@ -25,7 +25,7 @@ from inpainting import inpainting
 def bo(n_random: int = 5,
        trials: int = 15,
        minimize: bool = True,
-       num_iter_eval_fn: int = 20000,
+       num_iter_eval_fn: int = 3000,
        metric: str = "discr_mse_uncert",
        img_name: str = "xray",
        task: str = 'denoising',
@@ -52,7 +52,9 @@ def bo(n_random: int = 5,
         path_log_dir = "/bo_inp/"
     if not os.path.exists(log_dir + path_log_dir):
         os.mkdir(log_dir + path_log_dir)
-        print('here')
+    if not os.path.exists('./bo_exps'):
+        os.mkdir('./bo_exps')
+
     path_log_dir += datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
     if save_trials:
         path_log_dir = log_dir + path_log_dir
@@ -80,11 +82,11 @@ def bo(n_random: int = 5,
                      **kwargs)
 
         # metric = config["metric"]
-        if metric[:4] == "psnr":
-            psnr = results[metric]
-            return {metric: (np.mean(psnr[-100:]), np.std(psnr[-100:]))}
-        else:
-            return {metric: (results[metric], 0.0)}
+        # if metric[:4] == "psnr":
+        #     psnr = results[metric]
+        #     return {metric: (np.mean(psnr[-50:]), np.std(psnr[-100:]))}
+        # else:
+        return {metric: (np.mean(results[metric][-50:]), 0.0)}
 
 
     search_space = SearchSpace(

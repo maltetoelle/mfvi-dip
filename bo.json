@@ -20,5 +20,5 @@
  ],
  "net_params": ["beta", "prior_sigma"],
  "optim_params": [],
- "ref_point": [1e-6, 0.1]
+ "ref_point": [0.1, 0.1, 16.2]
 }

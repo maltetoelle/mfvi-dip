@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import Optimizer
 import numpy as np
 import fire
 from tqdm import tqdm
@@ -19,7 +20,7 @@ import lpips
 
 from models.downsampler import Downsampler
 
-from utils.common_utils import get_noise, np_to_torch
+from common_utils import get_noise, np_to_torch
 from train_utils import closure, track_training, get_imgs, save_run, get_net_and_optim, get_mc_preds, track_uncert_sgld
 
 from BayTorch.inference.losses import NLLLoss2d, uceloss
@@ -42,6 +43,20 @@ mc_iter = 10
 reg_noise_std = 1./10. # 1./30.
 exp_weight = 0.99
 
+import pdb
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
+
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
 
 def denoising(img_name: str = 'xray',
               criterion: str = 'nll',
@@ -52,7 +67,10 @@ def denoising(img_name: str = 'xray',
               net_specs: dict = {},
               optim_specs: dict = None,
               path_log_dir: str = None,
-              save: bool = True) -> Dict[str, List[float]]:
+              save: bool = True,
+              net: nn.Module = None,
+              optimizer: Optimizer = None,
+              lpips_loss: lpips.LPIPS = None) -> Dict[str, List[float]]:
 
     """
     Params
@@ -67,9 +85,10 @@ def denoising(img_name: str = 'xray',
 
     torch.manual_seed(seed)
     np.random.seed(seed)
+    device = 'cuda:' + str(gpu)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
-    dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+    # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     log_dir = [f'{str(k)}_{str(v)[:4]}' for k, v in net_specs.items()]
     if path_log_dir is None:
@@ -87,21 +106,31 @@ def denoising(img_name: str = 'xray',
 
     imgs = get_imgs(img_name, 'denoising', imsize=imsize, sigma=sigma)
 
-    net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2])).type(dtype).detach()
+    # net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2]))#.type(dtype).detach()
+    net_input = torch.zeros((1, num_input_channels, imgs['gt'].shape[1], imgs['gt'].shape[2]))
+    net_input.uniform_()
+    net_input *= 0.1
+    # net_input = torch.randn((1, 32, imgs['gt'].shape[1], imgs['gt'].shape[2]))
 
     num_output_channels = imgs['gt'].shape[0] + 1
 
-    img_noisy_torch = np_to_torch(imgs['noisy']).type(dtype)
-    img_torch = np_to_torch(imgs['gt']).type(dtype)
+    # img_noisy_torch = np_to_torch(imgs['noisy']).type(dtype)
+    # img_torch = np_to_torch(imgs['gt']).type(dtype)
 
-    net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
+    if net is None and optimizer is None:
+        net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
 
-    net = net.type(dtype)
+        # net = net.type(dtype)
+        net = net.to(device)
+
+    net_input = net_input.to(device).detach()
+    img_noisy_torch = np_to_torch(imgs['noisy']).to(device)
+    img_torch = np_to_torch(imgs['gt']).to(device)
 
     if criterion == 'nll':
-        criterion = NLLLoss2d(reduction='mean').type(dtype)
+        criterion = NLLLoss2d(reduction='mean').to(device)#.type(dtype)
     else:
-        criterion = nn.MSELoss(reduction='mean').type(dtype)
+        criterion = nn.MSELoss(reduction='mean').to(device)#.type(dtype)
 
     net_input_saved = net_input.detach().clone()
     noise = net_input.detach().clone()
@@ -110,8 +139,9 @@ def denoising(img_name: str = 'xray',
     results = {}
     sgld_imgs = [] if isinstance(optimizer, SGLD) else None
 
-    pbar = tqdm(range(1, num_iter+1))
-    for i in pbar:
+    # pbar = tqdm(range(1, num_iter+1))
+    # for i in pbar:
+    for i in range(1, num_iter+1):
 
         if reg_noise_std > 0:
             net_input = net_input_saved + (noise.normal_() * reg_noise_std)
@@ -128,7 +158,9 @@ def denoising(img_name: str = 'xray',
         if isinstance(optimizer, SGLD):
             sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out.detach(), **net_specs)
 
-        pbar.set_description('I: %d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
+        # pbar.set_description('I: %d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
+        print('I: %d/%d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, num_iter, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
+        sys.stdout.flush()
 
     if save:
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)
@@ -143,11 +175,16 @@ def denoising(img_name: str = 'xray',
         uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
         discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
 
-        loss_fn = lpips.LPIPS(net='alex')
-        lpips_metric = loss_fn(img_noisy_torch.cpu(), out_torch_mean[:,:-1].cpu())
+        if lpips_loss is None:
+            lpips_loss = lpips.LPIPS(net='alex').to(device)
+        lpips_losses = []
+        for _ in range(50):
+            lpips_metric = lpips_loss(img_noisy_torch, out_torch_mean[:,:-1])
+            lpips_losses.append(lpips_metric)
 
-        results["uce"] = uce
-        results["discr_mse_uncert"] = discr_mse_uncert
+
+        results["uce"] = [uce] * 50
+        results["discr_mse_uncert"] = [discr_mse_uncert] * 50
         results["lpips"] = lpips_metric
 
         return results
