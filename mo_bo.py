@@ -44,6 +44,7 @@ from denoising import denoising
 from inpainting import inpainting
 from utils.bo_utils import generate_initial_data, initialize_model, optimize_and_get_observation
 from train_utils import get_net_and_optim
+from utils.bo_utils import ForkedPdb
 
 num_input_channels = 32
 num_output_channels = 2
@@ -59,7 +60,7 @@ class MultiObjDIPProb(Module):
     def __init__(self,
                  task: str,
                  config: Dict,
-                 metrics: Dict[str, str] = OrderedDict({"uce": "max", "lpips": "max", "psnr_corrupted": "min"}),
+                 metrics: Dict[str, str] = OrderedDict({"uce": "min", "lpips": "min", "psnr_corrupted": "min"}),
                  img_name: str = "xray",
                  num_iter_eval_fn: int = 10000,
                  save_trials: bool = False,
@@ -84,7 +85,7 @@ class MultiObjDIPProb(Module):
         self.net_specs = config["net_specs"]
         self.optim_specs = config["optim_specs"]
         self.metrics = metrics
-        self._ops = {"max": -1, "min": 1}
+        self._ops = {"max": 1, "min": int(-1)}
         self.num_objectives = len(self.metrics)
         # self.params = config["net_params"] + config["optim_params"]
         self.params = [p["name"] for p in config["parameter"]]
@@ -126,8 +127,14 @@ class MultiObjDIPProb(Module):
                                 net=net,
                                 optimizer=optimizer,
                                 lpips_loss=lpips_loss)
-        # TODO: PSNR average over last 100 runs or also average over lpips and uce
-        results[order] = torch.tensor([[np.mean(self._ops[op] * single_result[metric][-50:]) for op, metric in self.metrics.items()]])
+
+        # hard coded threshold for psnr noisy
+        # must be at least this high to obtain a valid image
+        if np.mean(single_result["psnr_corrupted"][-50:]) < 19:
+            single_result["psnr_corrupted"][-50:] = [100] * 50
+
+        results[order] = torch.tensor([[self._ops[op] * np.mean(single_result[metric][-50:]) for metric, op in self.metrics.items()]])
+        # results[order] = torch.tensor([[np.mean(single_result[metric]), for metric in self.metrics]])
 
     # make that able to run for batched data?
     def forward(self, params: Tensor) -> Tensor:
@@ -140,7 +147,6 @@ class MultiObjDIPProb(Module):
         for order, (single_params, gpu) in enumerate(zip(params, _gpus)):
             print(f"Starting process {order+1}/{len(params)}...")
             p = mp.Process(target=self.mp_fn, args=(gpu, single_params, results, order, lpips_loss,))
-            p.start()
             p.start()
             processes.append(p)
         print('Waiting for processes to finish')
@@ -157,7 +163,7 @@ def bo(n_trials: int = 3,
        batch_size: int = 4,
        minimize: bool = True,
        num_iter_eval_fn: int = 3000,
-       metrics: Dict[str, str] = OrderedDict({"uce": "max", "lpips": "max", "psnr_corrupted": "min"}),
+       metrics: Dict[str, str] = OrderedDict({"uce": "min", "lpips": "min", "psnr_corrupted": "min"}),
        img_name: str = "xray",
        task: str = 'denoising',
        config: str = "bo",
@@ -190,7 +196,7 @@ def bo(n_trials: int = 3,
     if not os.path.exists('./bo_exps'):
         os.mkdir('./bo_exps')
     fn_exp = f"{task}_{'_'.join(metrics)}_{datetime.now().strftime('%m_%d_%Y_%H_%M_%S')}"
-    # os.mkdir(f'./bo_exps/{fn_exps}')
+    os.mkdir(f'./bo_exps/{fn_exp}')
 
     problem = MultiObjDIPProb(task=task,
                               config=config,
@@ -204,6 +210,12 @@ def bo(n_trials: int = 3,
 
     hvs_all = []
 
+    initial_train_x = torch.tensor([
+        [1e-10, 0.4],
+        [1e-6, 0.1],
+        [1e-4, 0.05],
+        [1e-8, 0.2]
+    ])
     hv = Hypervolume(ref_point=problem.ref_point)
 
     # average over multiple trials
@@ -214,7 +226,7 @@ def bo(n_trials: int = 3,
         hvs = []
 
         # call helper functions to generate initial training data and initialize model
-        train_x, train_obj = generate_initial_data(problem, n=n_initial, seed=seed)
+        train_x, train_obj = generate_initial_data(problem, train_x=initial_train_x, n=n_initial, seed=seed)
 
         # compute hypervolume
         mll, model = initialize_model(train_x, train_obj)
@@ -238,11 +250,11 @@ def bo(n_trials: int = 3,
             fit_gpytorch_model(mll)
 
             # define the qEI and qNEI acquisition modules using a QMC sampler
-            qehvi_sampler = SobolQMCNormalSampler(num_samples=mc_samples)
+            sampler = SobolQMCNormalSampler(num_samples=mc_samples)
 
             # optimize acquisition functions and get new observations
             new_x, new_obj = optimize_and_get_observation(
-                problem, model, train_obj, qehvi_sampler, batch_size
+                problem, model, train_obj, sampler, batch_size
             )
 
             # update training points
@@ -267,7 +279,7 @@ def bo(n_trials: int = 3,
 
             print(f"\nBatch {iteration:>2}: Hypervolume (, {hvs[-1]:>4.2f}), time = {t1-t0:>4.2f}.")
 
-            # torch.save({"train_x:" train_x, "train_obj": train_obj, "hvs": hvs_all}, f'./bo_exps/{fn_exps}/train_data.pt')
+            torch.save({"train_x": train_x, "train_obj": train_obj, "hvs": hvs_all}, f'./bo_exps/{fn_exp}/train_data.pt')
 
         hvs_all.append(hvs)
 

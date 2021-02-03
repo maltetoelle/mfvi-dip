@@ -43,20 +43,6 @@ mc_iter = 10
 reg_noise_std = 1./10. # 1./30.
 exp_weight = 0.99
 
-import pdb
-class ForkedPdb(pdb.Pdb):
-    """A Pdb subclass that may be used
-    from a forked multiprocessing child
-
-    """
-    def interaction(self, *args, **kwargs):
-        _stdin = sys.stdin
-        try:
-            sys.stdin = open('/dev/stdin')
-            pdb.Pdb.interaction(self, *args, **kwargs)
-        finally:
-            sys.stdin = _stdin
-
 
 def denoising(img_name: str = 'xray',
               criterion: str = 'nll',
@@ -102,6 +88,8 @@ def denoising(img_name: str = 'xray',
             info = net_specs.copy()
             info["criterion"] = criterion
             info["sigma"] = sigma
+            info["img_name"] = img_name
+            info["imsize"] = imsize
             json.dump(info, f, indent=4)
 
     imgs = get_imgs(img_name, 'denoising', imsize=imsize, sigma=sigma)
@@ -139,9 +127,9 @@ def denoising(img_name: str = 'xray',
     results = {}
     sgld_imgs = [] if isinstance(optimizer, SGLD) else None
 
-    # pbar = tqdm(range(1, num_iter+1))
-    # for i in pbar:
-    for i in range(1, num_iter+1):
+    pbar = tqdm(range(1, num_iter+1))
+    for i in pbar:
+    # for i in range(1, num_iter+1):
 
         if reg_noise_std > 0:
             net_input = net_input_saved + (noise.normal_() * reg_noise_std)
@@ -158,35 +146,34 @@ def denoising(img_name: str = 'xray',
         if isinstance(optimizer, SGLD):
             sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out.detach(), **net_specs)
 
-        # pbar.set_description('I: %d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
-        print('I: %d/%d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, num_iter, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
-        sys.stdout.flush()
+        pbar.set_description('I: %d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
+        # print('I: %d/%d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, num_iter, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
+        # sys.stdout.flush()
+
+
+    img_list = get_mc_preds(net, net_input, mc_iter)
+    _, _, uncert = uncert_regression_gal(img_list, reduction=None)
+
+    out_torch_mean = torch.mean(torch.cat(img_list, dim=0)[:], dim=0, keepdim=True)
+    mse_err = F.mse_loss(out_torch_mean[:,:-1], img_noisy_torch, reduction='none')
+
+    uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
+    discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
+
+    if lpips_loss is None:
+        lpips_loss = lpips.LPIPS(net='alex').to(device)
+
+    lpips_metric = lpips_loss(img_noisy_torch, out_torch_mean[:,:-1]).item()
+
+    # TODO: this is just a very quick hack
+    results["uce"] = [uce.item()] * 50
+    results["discr_mse_uncert"] = [discr_mse_uncert] * 50
+    results["lpips"] = [lpips_metric] * 50
 
     if save:
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)
 
     if __name__ != "__main__":
-        img_list = get_mc_preds(net, net_input, mc_iter)
-        _, _, uncert = uncert_regression_gal(img_list, reduction=None)
-
-        out_torch_mean = torch.mean(torch.cat(img_list, dim=0)[:], dim=0, keepdim=True)
-        mse_err = F.mse_loss(out_torch_mean[:,:-1], img_noisy_torch, reduction='none')
-
-        uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
-        discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
-
-        if lpips_loss is None:
-            lpips_loss = lpips.LPIPS(net='alex').to(device)
-        lpips_losses = []
-        for _ in range(50):
-            lpips_metric = lpips_loss(img_noisy_torch, out_torch_mean[:,:-1])
-            lpips_losses.append(lpips_metric)
-
-
-        results["uce"] = [uce] * 50
-        results["discr_mse_uncert"] = [discr_mse_uncert] * 50
-        results["lpips"] = lpips_metric
-
         return results
 
 

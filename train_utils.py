@@ -48,7 +48,7 @@ def closure(net: nn.Module,
         nll = criterion(out_p[:,:-1] * mask, target * mask)
 
     if isinstance(net, MeanFieldVI):
-        ELBO = nll + net.kl() # * net.beta
+        ELBO = nll + net.kl # * net.beta
     else:
         ELBO = nll
 
@@ -58,7 +58,7 @@ def closure(net: nn.Module,
     return ELBO, out, out_p
 
 
-def get_mc_preds(net: nn.Module, inputs: Tensor, mc_iter: int = 25, post_processor: nn.Module = None) -> List[Tensor]:
+def get_mc_preds(net: nn.Module, inputs: Tensor, mc_iter: int = 25, post_processor: nn.Module = None, mask: Tensor = torch.ones(1)) -> List[Tensor]:
 
     img_list = []
     with torch.no_grad():
@@ -66,6 +66,7 @@ def get_mc_preds(net: nn.Module, inputs: Tensor, mc_iter: int = 25, post_process
             out = net(inputs)
             if post_processor is not None:
                 out = post_processor(out)
+            out *= mask.to(out.device)
             out[:,:-1] = torch.sigmoid(out[:,:-1])
             out[:,-1:] = torch.exp(-torch.clamp(out[:,-1:], min=-20, max=20))
             img_list.append(out)

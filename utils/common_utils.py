@@ -174,7 +174,12 @@ def get_noise(input_depth, method, spatial_size, noise_type='u', var=1./10, libr
 
         net_input = torch.zeros(shape)
 
-        fill_noise(net_input, noise_type)
+        if noise_type == 'u':
+            net_input.uniform_()
+        elif noise_type == 'n':
+            net_input.normal_()
+        else:
+            assert False
 
         net_input *= var
 

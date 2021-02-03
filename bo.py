@@ -16,21 +16,22 @@ from ax import (
     save
 )
 from ax.modelbridge.registry import Models
+from ax.core.generator_run import GeneratorRun
+from ax.core.arm import Arm
 
 from super_resolution import super_resolution
 from denoising import denoising
 from inpainting import inpainting
 
 
-def bo(n_random: int = 5,
-       trials: int = 15,
+def bo(trials: int = 20,
        minimize: bool = True,
-       num_iter_eval_fn: int = 3000,
-       metric: str = "discr_mse_uncert",
+       num_iter_eval_fn: int = 10000,
+       metric: str = "psnr_gt",
        img_name: str = "xray",
        task: str = 'denoising',
-       config: str = "bo",
-       save_trials: bool = True,
+       config: str = "bo_single",
+       save_trials: bool = False,
        log_dir: str = "/media/fastdata/toelle",
        gpu: int = 1,
        seed: int = 42,
@@ -50,12 +51,14 @@ def bo(n_random: int = 5,
     elif task == "inpainting":
         fn = inpainting
         path_log_dir = "/bo_inp/"
-    if not os.path.exists(log_dir + path_log_dir):
+    if not os.path.exists(log_dir + path_log_dir) and save_trials:
         os.mkdir(log_dir + path_log_dir)
     if not os.path.exists('./bo_exps'):
         os.mkdir('./bo_exps')
 
-    path_log_dir += datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+    timestamp = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+    exp_path = "bo_exps/%s_%s.json" % (task, timestamp)
+    path_log_dir += timestamp
     if save_trials:
         path_log_dir = log_dir + path_log_dir
         os.mkdir(path_log_dir)
@@ -86,7 +89,8 @@ def bo(n_random: int = 5,
         #     psnr = results[metric]
         #     return {metric: (np.mean(psnr[-50:]), np.std(psnr[-100:]))}
         # else:
-        return {metric: (np.mean(results[metric][-50:]), 0.0)}
+        res = results[metric][-int(0.1*num_iter_eval_fn):]
+        return {metric: (-np.mean(res), np.std(res))}
 
 
     search_space = SearchSpace(
@@ -103,18 +107,29 @@ def bo(n_random: int = 5,
         minimize=minimize
     )
 
-    print(f"Starting random sampling with {n_random} samples...")
-    sobol = Models.SOBOL(exp.search_space)
-    exp.new_batch_trial(generator_run=sobol.gen(n_random))
+    # print(f"Starting random sampling with {n_random} samples...")
+    print("Starting with initial params...")
+    initial_params = []
+    for intial_vals in config["intial_values"]:
+        params = {p["name"]: val for p, val in zip(config["parameter"], intial_vals)}
+        initial_params.append(params)
+
+    initial_arms = [Arm(param) for param in initial_params]
+    initial_generator_run = GeneratorRun(arms=initial_arms)
+
+    # sobol = Models.SOBOL(exp.search_space)
+    # exp.new_batch_trial(generator_run=sobol.gen(n_random))
+    exp.new_batch_trial(generator_run=initial_generator_run)
 
     for i in range(trials):
         print(f"Starting trial {i}/{trials}...")
         intermediate_gp = Models.GPEI(experiment=exp, data=exp.eval())
+        save(exp, exp_path)
         exp.new_trial(generator_run=intermediate_gp.gen(1))
 
     gp = Models.GPEI(experiment=exp, data=exp.eval())
 
-    save(exp, "bo_exps/%s_%s.json" % (task, datetime.now().strftime("%m_%d_%Y_%H_%M_%S")))
+    save(exp, exp_path)
 
 
 if __name__ == "__main__":

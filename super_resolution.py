@@ -140,7 +140,7 @@ def super_resolution(img_name: str = 'xray',
         results = track_training(img_LR_var, img_HR_var, dict(to_corrupted=out_LR, to_gt=out_HR, to_gt_sm=out_avg), results)
 
         if isinstance(optimizer, SGLD):
-            sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out.detach(), **net_specs)
+            sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out_LR.detach(), **net_specs)
 
         pbar.set_description('I: %d | ELBO: %.2f | PSNR_LR: %.2f | PSNR_HR: %.2f | PSNR_HR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
 

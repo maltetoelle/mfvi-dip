@@ -95,3 +95,35 @@ def analyse_calibration_sgld(img_list: List[torch.Tensor],
     fig, _ = plot_uncert(err_in_bin.cpu(), avg_sigma_in_bin.cpu())
     plt.savefig(path)
     return ale, epi, uncert, out_torch_mean
+
+def np_eval_plot(xs, ys, labels=None, sigma=5, xlabel=r'iteration', ylabel='', xtlf='', ytlf='', 
+            ylim=None, xlim=None, path=None):
+    if labels is None:
+        labels = ['' for _ in range(len(xs))]
+
+    fig, ax = plt.subplots(1, 1)
+    handles = []
+    for x, y, l in zip(xs, ys, labels):
+        if sigma > 0:
+            y = gaussian_filter1d(y, sigma=sigma)
+        plot = ax.plot(x, y, label=l)
+        handles.append(plot[0])
+    ax.set_xlabel(xlabel, fontsize=22)
+    ax.set_ylabel(ylabel, fontsize=22)
+    ax.tick_params(axis='both', which='major', labelsize=15)
+    if ylim != None:
+        ax.set_ylim(ylim[0],ylim[1])
+    if xlim != None:
+        ax.set_xlim(xlim[0],xlim[1])
+    ax.grid(True)
+    if labels is not None:
+        ax.legend()
+
+    if xtlf == 'sci':
+        ax.ticklabel_format(axis='x', style='sci', scilimits=(3, 3))
+    if ytlf == 'sci':
+        ax.ticklabel_format(axis='y', style='sci', scilimits=(-3,-3))
+    plt.tight_layout()
+    if path is not None:
+        plt.savefig(path)
+    plt.show()
