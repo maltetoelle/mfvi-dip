@@ -1,0 +1,22 @@
+{
+ "net_specs": {
+  "sgld": true,
+  "burnin_iter": 0,
+  "mcmc_iter": 1
+ },
+ "optim_specs": {},
+ "parameter": [
+  {
+   "name": "lr",
+   "type": "range",
+   "bounds": [1e-5, 5e-2]
+  },
+  {
+   "name": "weight_decay",
+   "type": "range",
+   "bounds": [1e-8, 1e-3]
+  }
+ ],
+ "net_params": [],
+ "optim_params": ["lr", "weight_decay"]
+}
