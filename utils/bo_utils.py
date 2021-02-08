@@ -27,15 +27,20 @@ from inpainting import inpainting
 
 class GPModel(ExactGP):
 
-    def __init__(self, train_x: Tensor, train_y: Tensor, likelihood: Tensor):
+    def __init__(self,
+                 train_x: Tensor,
+                 train_y: Tensor,
+                 likelihood: Tensor,
+                 lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
+                 mean_prior: Dict[str, float] = dict(loc=25., scale=2.)):
 
         super(GPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(
-            prior=NormalPrior(0.1, 0.25)
+            prior=NormalPrior(**mean_prior)
         )
 
-        lengthscale_prior = GammaPrior(0.3, 1.)
-        outputscale_prior = GammaPrior(120., 1.0)
+        lengthscale_prior = GammaPrior(**lengthscale_prior)
+        outputscale_prior = GammaPrior(1.0, 1.0)
 
         self.covar_module = ScaleKernel(
             RBFKernel(
@@ -55,15 +60,21 @@ class GPModel(ExactGP):
 
 def initialize_model(train_x: Tensor,
                      train_y: Tensor,
-                     num_iter: int = 100) -> Tuple[ExactGP, GaussianLikelihood]:
+                     num_iter: int = 100,
+                     lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
+                     mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
+                     fixed_noise: float = 1e-4) -> Tuple[ExactGP, GaussianLikelihood]:
 
-    likelihood = GaussianLikelihood(
-        noise_prior=GammaPrior(0.01, 4.0)
-    )
-    # likelihood = FixedNoiseGaussianLikelihood(
-    #     noise=torch.ones_like(train_x)*1e-2
+    # likelihood = GaussianLikelihood(
+    #     noise_prior=GammaPrior(0.01, 4.0)
     # )
-    model = GPModel(train_x, train_y, likelihood).double().to(train_x.device)
+    likelihood = FixedNoiseGaussianLikelihood(
+        noise=torch.ones_like(train_x) * fixed_noise
+    )
+    model = GPModel(
+        train_x, train_y, likelihood,
+        lengthscale_prior, mean_prior
+    ).double().to(train_x.device)
     model.train()
     likelihood.train()
     optimizer = torch.optim.Adam([{'params': model.parameters()},], lr=0.1)

@@ -150,26 +150,6 @@ def denoising(img_name: str = 'xray',
         # print('I: %d/%d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, num_iter, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
         # sys.stdout.flush()
 
-
-    img_list = get_mc_preds(net, net_input, mc_iter)
-    _, _, uncert = uncert_regression_gal(img_list, reduction=None)
-
-    out_torch_mean = torch.mean(torch.cat(img_list, dim=0)[:], dim=0, keepdim=True)
-    mse_err = F.mse_loss(out_torch_mean[:,:-1], img_noisy_torch, reduction='none')
-
-    uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
-    discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
-
-    if lpips_loss is None:
-        lpips_loss = lpips.LPIPS(net='alex').to(device)
-
-    lpips_metric = lpips_loss(img_noisy_torch, out_torch_mean[:,:-1]).item()
-
-    # TODO: this is just a very quick hack
-    results["uce"] = [uce.item()] * 50
-    results["discr_mse_uncert"] = [discr_mse_uncert] * 50
-    results["lpips"] = [lpips_metric] * 50
-
     if save:
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)
 

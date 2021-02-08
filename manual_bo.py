@@ -24,7 +24,7 @@ from inpainting import inpainting
 def bo(
     exp_name: str = "bo",
     trials: int = 20,
-    num_iter_eval_fn: int = 10,
+    num_iter_eval_fn: int = 10000,
     n_init: int = 4,
     criterion: str = 'nll',
     metric: str = "psnr_gt_sm",
@@ -79,6 +79,10 @@ def bo(
 
 
     params = {p["name"]: p["bounds"] for p in config["parameter"]}
+    lengthscale_prior = config["lengthscale_prior"] if "lengthscale_prior" in list(config.keys()) else dict(concentration=0.3, rate=1.)
+    #  25. only for denoising the rest is lower
+    mean_prior = config["mean_prior"] if "mean_prior" in list(config.keys()) else dict(loc=25., scale=2.)
+    fixed_noise = config["fixed_noise"] if "fixed_noise" in list(config.keys()) else 1e-4
 
     initial_params_vals = config["initial_parameter"] if "initial_parameter" in config.keys() else None
 
@@ -94,7 +98,9 @@ def bo(
     )
 
     best_params = bayesian_optimization.optimize(
-        trials=trials, plot=True, gpu=gpu, path=log_dir
+        trials=trials, plot=True, gpu=gpu, path=log_dir,
+        lengthscale_prior=lengthscale_prior, mean_prior=mean_prior,
+        fixed_noise=fixed_noise
     )
 
     print(best_params)

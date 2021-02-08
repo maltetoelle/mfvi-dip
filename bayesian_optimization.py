@@ -92,7 +92,10 @@ class BayesianOptimization:
                  num_iter_gp: int = 100,
                  plot: bool = False,
                  gpu: int = 0,
-                 path: str = None) -> Tensor:
+                 path: str = None,
+                 lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
+                 mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
+                 fixed_noise: float = 1e-4) -> Tensor:
         '''
         Fct. for performing Bayesian optimization.
 
@@ -107,7 +110,10 @@ class BayesianOptimization:
         device = f'cuda:{gpu}' if torch.cuda.is_available() else 'cpu'
         results = {}
 
-        model, likelihood = initialize_model(self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device), num_iter_gp)
+        model, likelihood = initialize_model(
+            self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
+            num_iter_gp, lengthscale_prior, mean_prior, fixed_noise
+        )
 
         if path is not None:
             results["p_space"] = self.params_space
@@ -144,7 +150,10 @@ class BayesianOptimization:
             self.params_samples = torch.cat([self.params_samples, torch.tensor(next_params)], dim=0)
             self.cost_samples = torch.cat([self.cost_samples, torch.tensor(next_cost)], dim=0)
 
-            model, likelihood = initialize_model(self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device), num_iter_gp)
+            model, likelihood = initialize_model(
+                self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
+                num_iter_gp, lengthscale_prior, mean_prior, fixed_noise
+            )
 
             if path is not None:
                 results[i] = {

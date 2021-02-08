@@ -148,25 +148,6 @@ def super_resolution(img_name: str = 'xray',
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)
 
     if __name__ != "__main__":
-        img_list = get_mc_preds(net, net_input, mc_iter, post_processor=downsampler)
-        _, _, uncert = uncert_regression_gal(img_list, reduction=None)
-
-        out_torch_mean = torch.mean(torch.cat(img_list, dim=0)[:], dim=0, keepdim=True)
-        mse_err = F.mse_loss(out_torch_mean[:,:-1], img_LR_var, reduction='none')
-
-        uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
-        discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
-
-        loss_fn = lpips.LPIPS(net='alex').type(dtype)
-        # lpips_metric = loss_fn(img_LR_var.cpu(), out_torch_mean[:,:-1].cpu())
-        lpips_losses = []
-        for _ in range(50):
-            lpips_metric = loss_fn(img_LR_var, out_torch_mean[:,:-1])
-            lpips_losses.append(lpips_metric)
-
-        results["uce"] = [uce] * 50
-        results["discr_mse_uncert"] = [discr_mse_uncert] * 50
-        results["lpips"] = [lpips_metric]
         return results
 
 

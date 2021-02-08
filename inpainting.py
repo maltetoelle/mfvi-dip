@@ -139,24 +139,6 @@ def inpainting(img_name: str = 'skin_lesion3',
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)
 
     if __name__ != "__main__":
-        img_list = get_mc_preds(net, net_input, mc_iter)
-        _, _, uncert = uncert_regression_gal(img_list)
-
-        out_torch_mean = torch.mean(torch.cat(img_list, dim=0)[:], dim=0, keepdim=True)
-        mse_err = F.mse_loss(out_torch_mean[:,:-1], img_torch, reduction='mean')
-
-        uce, err_in_bin, avg_sigma_in_bin, freq_in_bin = uceloss(mse_err, uncert, n_bins=10, outlier=0.02)
-        discr_mse_uncert = torch.abs(mse_err.mean() - uncert.mean()).item()
-
-        discr_mse_uncert = torch.abs(mse_err - uncert)
-
-        loss_fn = lpips.LPIPS(net='alex')
-        lpips_metric = loss_fn((img_torch*img_mask_torch).cpu(), out_torch_mean[:,:-1].cpu())
-
-        results["uce"] = [uce]
-        results["discr_mse_uncert"] = [discr_mse_uncert]
-        results["lpips"] = [lpips_metric]
-
         return results
 
 
