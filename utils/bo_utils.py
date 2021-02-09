@@ -124,7 +124,7 @@ def plot_optimization(model: ExactGP,
                     upper,
                     color=cp[0],
                     alpha=0.5)
-    sur_fct, = ax.plot(p_space, mu, c=cp[1], label='Surrogate fct')
+    sur_fct, = ax.plot(p_space, mu, c=cp[1], label='Surrogate mean')
     cost_samples, = ax.plot(p_samples, c_samples, 'kx', mew=3, label='Cost samples')
 
     ax2 = ax.twinx()
