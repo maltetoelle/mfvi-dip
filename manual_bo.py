@@ -82,7 +82,8 @@ def bo(
     lengthscale_prior = config["lengthscale_prior"] if "lengthscale_prior" in list(config.keys()) else dict(concentration=0.3, rate=1.)
     #  25. only for denoising the rest is lower
     mean_prior = config["mean_prior"] if "mean_prior" in list(config.keys()) else dict(loc=25., scale=2.)
-    fixed_noise = config["fixed_noise"] if "fixed_noise" in list(config.keys()) else 1e-4
+    noise_prior = config["noise_prior"] if "noise_prior" in list(config.keys()) else 1e-4
+
 
     initial_params_vals = config["initial_parameter"] if "initial_parameter" in config.keys() else None
 
@@ -100,7 +101,7 @@ def bo(
     best_params = bayesian_optimization.optimize(
         trials=trials, plot=True, gpu=gpu, path=log_dir,
         lengthscale_prior=lengthscale_prior, mean_prior=mean_prior,
-        fixed_noise=fixed_noise
+        noise_prior=noise_prior
     )
 
     print(best_params)

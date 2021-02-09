@@ -95,7 +95,7 @@ class BayesianOptimization:
                  path: str = None,
                  lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
                  mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
-                 fixed_noise: float = 1e-4) -> Tensor:
+                 noise_prior: Union[float, Dict[str, float]] = 1e-4) -> Tensor:
         '''
         Fct. for performing Bayesian optimization.
 
@@ -112,7 +112,7 @@ class BayesianOptimization:
 
         model, likelihood = initialize_model(
             self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
-            num_iter_gp, lengthscale_prior, mean_prior, fixed_noise
+            num_iter_gp, lengthscale_prior, mean_prior, noise_prior
         )
 
         if path is not None:
@@ -152,7 +152,7 @@ class BayesianOptimization:
 
             model, likelihood = initialize_model(
                 self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
-                num_iter_gp, lengthscale_prior, mean_prior, fixed_noise
+                num_iter_gp, lengthscale_prior, mean_prior, noise_prior
             )
 
             if path is not None:
