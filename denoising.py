@@ -17,17 +17,14 @@ import numpy as np
 import fire
 from tqdm import tqdm
 
-from models.downsampler import Downsampler
-
 from common_utils import get_noise, np_to_torch
 from train_utils import closure, track_training, get_imgs, save_run, get_net_and_optim, get_mc_preds, track_uncert_sgld
 
 from BayTorch.inference.losses import NLLLoss2d, uceloss
-from BayTorch.inference.utils import uncert_regression_gal
-from BayTorch.optimizer.sgld import SGLD
+from BayTorch.optimizer.sgld import SGLD, add_noise_sgld
 
 torch.backends.cudnn.enabled = True
-torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.benchmark = True
 
 num_input_channels = 32
 num_channels_down = 128
@@ -93,10 +90,6 @@ def denoising(img_name: str = 'xray',
     imgs = get_imgs(img_name, 'denoising', imsize=imsize, sigma=sigma)
 
     net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2]))#.type(dtype).detach()
-    # net_input = torch.zeros((1, num_input_channels, imgs['gt'].shape[1], imgs['gt'].shape[2]))
-    # net_input.uniform_()
-    # net_input *= 0.1
-    # net_input = torch.randn((1, 32, imgs['gt'].shape[1], imgs['gt'].shape[2]))
 
     num_output_channels = imgs['gt'].shape[0] + 1
 
@@ -123,11 +116,10 @@ def denoising(img_name: str = 'xray',
 
     out_avg = None
     results = {}
-    sgld_imgs = [] if isinstance(optimizer, SGLD) else None
+    sgld_imgs = [] if isinstance(optimizer, SGLD) or "sgld_cheng" in list(net_specs.keys()) else None
 
     pbar = tqdm(range(1, num_iter+1))
     for i in pbar:
-    # for i in range(1, num_iter+1):
 
         if reg_noise_std > 0:
             net_input = net_input_saved + (noise.normal_() * reg_noise_std)
@@ -141,12 +133,12 @@ def denoising(img_name: str = 'xray',
 
         results = track_training(img_noisy_torch, img_torch, dict(to_corrupted=out, to_gt=out, to_gt_sm=out_avg), results)
 
-        if isinstance(optimizer, SGLD):
+        if isinstance(optimizer, SGLD) or "sgld_cheng" in list(net_specs.keys()):
             sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out.detach(), **net_specs)
+        if "sgld_cheng" in list(net_specs.keys()):
+            add_noise_sgld(net, 2 * optim_specs["lr"])
 
         pbar.set_description('I: %d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
-        # print('I: %d/%d | ELBO: %.2f | PSNR_noisy: %.2f | PSNR_gt: %.2f | PSNR_gt_sm: %.2f' % (i, num_iter, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
-        # sys.stdout.flush()
 
     if save:
         save_run(results, net, optimizer, net_input_saved, out_avg, sgld_imgs, path=path_log_dir)

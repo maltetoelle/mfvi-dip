@@ -4,19 +4,17 @@
   "burnin_iter": 0,
   "mcmc_iter": 1
  },
- "optim_specs": {},
+ "optim_specs": {
+  "lr": 0.01
+ },
  "parameter": [
-  {
-   "name": "lr",
-   "type": "range",
-   "bounds": [1e-5, 5e-2]
-  },
   {
    "name": "weight_decay",
    "type": "range",
-   "bounds": [1e-8, 1e-3]
+   "bounds": [1e-10, 1e-3]
   }
  ],
  "net_params": [],
- "optim_params": ["lr", "weight_decay"]
+ "optim_params": ["weight_decay"],
+ "intial_values": [[5e-8], [1e-4], [5e-10], [6e-5]]
 }

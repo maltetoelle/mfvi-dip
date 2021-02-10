@@ -6,6 +6,7 @@ from typing import List
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
+from scipy.ndimage import gaussian_filter1d
 
 import torch
 import torch.nn as nn
@@ -96,7 +97,7 @@ def analyse_calibration_sgld(img_list: List[torch.Tensor],
     plt.savefig(path)
     return ale, epi, uncert, out_torch_mean
 
-def np_eval_plot(xs, ys, labels=None, sigma=5, xlabel=r'iteration', ylabel='', xtlf='', ytlf='', 
+def np_eval_plot(xs, ys, labels=None, sigma=5, xlabel=r'iteration', ylabel='', xtlf='', ytlf='',
             ylim=None, xlim=None, path=None):
     if labels is None:
         labels = ['' for _ in range(len(xs))]

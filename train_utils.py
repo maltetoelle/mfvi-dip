@@ -11,7 +11,7 @@ from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.common_utils import torch_to_np, np_to_pil, pil_to_np, get_fname, get_image, crop_image
+from utils.common_utils import torch_to_np, np_to_pil, pil_to_np, get_fname, get_image, crop_image, init_normal
 from utils.denoising_utils import get_noisy_image
 from utils.sr_utils import load_LR_HR_imgs_sr
 from utils.viz_utils import np_plot, analyse_calibration, analyse_calibration_sgld
@@ -195,7 +195,7 @@ def get_net_and_optim(num_input_channels: int,
                       num_channels_down: Union[List[int], int],
                       num_channels_up: Union[List[int], int],
                       num_channels_skip: Union[List[int], int],
-                      num_scales: int,
+                      num_scales: int = 5,
                       filter_size_down: int = 3,
                       filter_size_up: int = 3,
                       filter_skip_size: int = 1,
@@ -239,6 +239,7 @@ def get_net_and_optim(num_input_channels: int,
         net = MCDropoutVI(net,
                           dropout_type=net_specs['dropout_type'],
                           dropout_p=net_specs['dropout_p'])
+        net.apply(init_normal)
         optimizer = torch.optim.AdamW(net.parameters(), **optim_specs)
     elif 'prior_mu' in list(net_specs.keys()):
         prior = {

@@ -1,0 +1,14 @@
+{
+ "num_input_channels": 1,
+ "num_output_channels": 4,
+ "num_channels_down": [16, 32, 64, 128, 128, 128],
+ "num_channels_up": [16, 32, 64, 128, 128, 128],
+ "num_channels_skip": 0,
+ "num_scales": 6,
+ "upsample_mode": "nearest",
+ "filter_size_down": 5,
+ "filter_size_up": 3,
+ "filter_skip_size": 1,
+ "need1x1_up": false,
+ "pad": "reflection"
+}

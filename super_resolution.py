@@ -24,10 +24,10 @@ from train_utils import closure, track_training, get_imgs, save_run, get_net_and
 
 from BayTorch.inference.losses import NLLLoss2d, uceloss
 from BayTorch.inference.utils import uncert_regression_gal
-from BayTorch.optimizer.sgld import SGLD
+from BayTorch.optimizer.sgld import SGLD, add_noise_sgld
 
 torch.backends.cudnn.enabled = True
-torch.backends.cudnn.benchmark =True
+torch.backends.cudnn.benchmark = False
 
 num_input_channels = 32
 num_channels_down = 128
@@ -122,7 +122,7 @@ def super_resolution(img_name: str = 'xray',
 
     out_avg = None
     results = {}
-    sgld_imgs = [] if isinstance(optimizer, SGLD) else None
+    sgld_imgs = [] if isinstance(optimizer, SGLD) or "sgld_cheng" in list(net_specs.keys()) else None
 
     pbar = tqdm(range(1, num_iter+1))
     for i in pbar:
@@ -139,8 +139,10 @@ def super_resolution(img_name: str = 'xray',
 
         results = track_training(img_LR_var, img_HR_var, dict(to_corrupted=out_LR, to_gt=out_HR, to_gt_sm=out_avg), results)
 
-        if isinstance(optimizer, SGLD):
+        if isinstance(optimizer, SGLD) or "sgld_cheng" in list(net_specs.keys()):
             sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out_LR.detach(), **net_specs)
+        if "sgld_cheng" in list(net_specs.keys()):
+            add_noise_sgld(net, 2 * optim_specs["lr"])
 
         pbar.set_description('I: %d | ELBO: %.2f | PSNR_LR: %.2f | PSNR_HR: %.2f | PSNR_HR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))
 

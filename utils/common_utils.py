@@ -27,16 +27,40 @@ def get_fname(img_name):
         fname = 'data/bayesian/CNV-9997680-30.png'
     elif img_name == 'us':
         fname = 'data/bayesian/081_HC.jpg'
-    elif img_name == 'mri':
-        fname = 'data/bayesian/gt_mri.png'
-    elif img_name == 'ct':
-        fname = 'data/bayesian/gt_ct.png'
+
+    elif img_name == 'mri0':
+        fname = 'data/sr/MRI/img_203.png'
+    elif img_name == 'mri1':
+        fname = 'data/sr/MRI/img_139.png'
+    elif img_name == 'mri2':
+        fname = 'data/sr/MRI/img_147.png'
+    elif img_name == 'mri3':
+        fname = 'data/sr/MRI/img_153.png'
+    elif img_name == 'mri4':
+        fname = 'data/sr/MRI/img_229.png'
+    elif img_name == 'mri5':
+        fname = 'data/sr/MRI/img_255.png'
+
+    elif img_name == 'ct0':
+        fname = 'data/sr/CT/ct0.png'
+    elif img_name == 'ct1':
+        fname = 'data/sr/CT/ct1.png'
+    elif img_name == 'ct2':
+        fname = 'data/sr/CT/ct2.png'
+    elif img_name == 'ct3':
+        fname = 'data/sr/CT/ct3.png'
+    elif img_name == 'ct4':
+        fname = 'data/sr/CT/ct4.png'
+    elif img_name == 'ct5':
+        fname = 'data/sr/CT/ct5.png'
+
     elif img_name == 'peppers':
         fname = 'GP_DIP/data/denoising/Dataset/image_Peppers512rgb.png'
     elif img_name == 'zebra':
         fname = 'data/sr/zebra_GT.png'
     elif img_name == 'library':
         fname = 'data/inpainting/library.png'
+
     elif img_name == "skin_lesion0":
         fname = "data/inpainting/skin_lesions/hair_0.png"
     elif img_name == "skin_lesion1":
@@ -49,6 +73,7 @@ def get_fname(img_name):
         fname = "data/inpainting/skin_lesions/hair_4.png"
     elif img_name == "skin_lesion5":
         fname = "data/inpainting/skin_lesions/hair_5.png"
+
     return fname
 
 def crop_image(img, d=32):
