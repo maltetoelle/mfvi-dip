@@ -16,7 +16,6 @@ from torch.optim import Optimizer
 import numpy as np
 import fire
 from tqdm import tqdm
-import lpips
 
 from models.downsampler import Downsampler
 
@@ -28,7 +27,7 @@ from BayTorch.inference.utils import uncert_regression_gal
 from BayTorch.optimizer.sgld import SGLD
 
 torch.backends.cudnn.enabled = True
-torch.backends.cudnn.benchmark =True
+torch.backends.cudnn.benchmark = False
 
 num_input_channels = 32
 num_channels_down = 128
@@ -55,8 +54,7 @@ def denoising(img_name: str = 'xray',
               path_log_dir: str = None,
               save: bool = True,
               net: nn.Module = None,
-              optimizer: Optimizer = None,
-              lpips_loss: lpips.LPIPS = None) -> Dict[str, List[float]]:
+              optimizer: Optimizer = None) -> Dict[str, List[float]]:
 
     """
     Params
@@ -94,10 +92,10 @@ def denoising(img_name: str = 'xray',
 
     imgs = get_imgs(img_name, 'denoising', imsize=imsize, sigma=sigma)
 
-    # net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2]))#.type(dtype).detach()
-    net_input = torch.zeros((1, num_input_channels, imgs['gt'].shape[1], imgs['gt'].shape[2]))
-    net_input.uniform_()
-    net_input *= 0.1
+    net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2]))#.type(dtype).detach()
+    # net_input = torch.zeros((1, num_input_channels, imgs['gt'].shape[1], imgs['gt'].shape[2]))
+    # net_input.uniform_()
+    # net_input *= 0.1
     # net_input = torch.randn((1, 32, imgs['gt'].shape[1], imgs['gt'].shape[2]))
 
     num_output_channels = imgs['gt'].shape[0] + 1

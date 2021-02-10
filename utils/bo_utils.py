@@ -1,8 +1,10 @@
+import sys
 from typing import Dict, List, Tuple, Callable, Union
 
 from gpytorch.models import ExactGP
 from gpytorch.means import ConstantMean
 from gpytorch.kernels import ScaleKernel, RBFKernel
+from gpytorch.constraints import GreaterThan
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.priors import GammaPrior, NormalPrior
 from gpytorch.likelihoods import GaussianLikelihood, FixedNoiseGaussianLikelihood
@@ -18,6 +20,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
 import lpips
+from tqdm import tqdm
 
 from train_utils import get_net_and_optim
 from super_resolution import super_resolution
@@ -32,6 +35,7 @@ class GPModel(ExactGP):
                  train_y: Tensor,
                  likelihood: Tensor,
                  lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
+                 lengthscale_constraint: float = 0.01,
                  mean_prior: Dict[str, float] = dict(loc=25., scale=2.)):
 
         super(GPModel, self).__init__(train_x, train_y, likelihood)
@@ -45,6 +49,7 @@ class GPModel(ExactGP):
         self.covar_module = ScaleKernel(
             RBFKernel(
                 lengthscale_prior=lengthscale_prior,
+                lengthscale_constraint=GreaterThan(lengthscale_constraint)
             ),
             outputscale_prior=outputscale_prior
         )
@@ -62,6 +67,7 @@ def initialize_model(train_x: Tensor,
                      train_y: Tensor,
                      num_iter: int = 100,
                      lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
+                     lengthscale_constraint: float = 0.01,
                      mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
                      noise_prior: Union[float, Dict[str, float]] = 1e-4) -> Tuple[ExactGP, GaussianLikelihood]:
 
@@ -75,20 +81,24 @@ def initialize_model(train_x: Tensor,
         )
 
     model = GPModel(
-        train_x, train_y, likelihood,
-        lengthscale_prior, mean_prior
+        train_x, train_y, likelihood, lengthscale_prior,
+        lengthscale_constraint, mean_prior
     ).double().to(train_x.device)
     model.train()
     likelihood.train()
     optimizer = torch.optim.Adam([{'params': model.parameters()},], lr=0.1)
     mll = ExactMarginalLogLikelihood(likelihood, model)
 
-    for i in range(num_iter):
+    print("Training GP...")
+    pbar = tqdm(range(num_iter), file=sys.stdout)
+    for i in pbar:
         optimizer.zero_grad()
         output = model(train_x)
         loss = -mll(output, train_y)
         loss.backward()
         optimizer.step()
+
+        pbar.set_description(f"loss: {loss.item():.3f} | lengthscale: {model.covar_module.base_kernel.lengthscale.item():.3f} | noise: {model.likelihood.noise.mean().item():.5f}")
 
     return model, likelihood
 

@@ -37,12 +37,18 @@ def get_fname(img_name):
         fname = 'data/sr/zebra_GT.png'
     elif img_name == 'library':
         fname = 'data/inpainting/library.png'
-    elif img_name == 'skin_lesion':
-        fname = 'data/inpainting/ISIC_0000095_downsampled.jpg'
-    elif img_name == 'skin_lesion2':
-        fname = "data/inpainting/ISIC_0059914.jpg"
+    elif img_name == "skin_lesion0":
+        fname = "data/inpainting/skin_lesions/hair_0.png"
+    elif img_name == "skin_lesion1":
+        fname = "data/inpainting/skin_lesions/hair_1.png"
+    elif img_name == "skin_lesion2":
+        fname = "data/inpainting/skin_lesions/hair_2.png"
     elif img_name == "skin_lesion3":
-        fname = "data/inpainting/original_hair.png"
+        fname = "data/inpainting/skin_lesions/hair_3.png"
+    elif img_name == "skin_lesion4":
+        fname = "data/inpainting/skin_lesions/hair_4.png"
+    elif img_name == "skin_lesion5":
+        fname = "data/inpainting/skin_lesions/hair_5.png"
     return fname
 
 def crop_image(img, d=32):

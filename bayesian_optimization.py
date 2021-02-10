@@ -94,6 +94,7 @@ class BayesianOptimization:
                  gpu: int = 0,
                  path: str = None,
                  lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
+                 lengthscale_constraint: float = 0.01,
                  mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
                  noise_prior: Union[float, Dict[str, float]] = 1e-4) -> Tensor:
         '''
@@ -112,7 +113,7 @@ class BayesianOptimization:
 
         model, likelihood = initialize_model(
             self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
-            num_iter_gp, lengthscale_prior, mean_prior, noise_prior
+            num_iter_gp, lengthscale_prior, lengthscale_constraint, mean_prior, noise_prior
         )
 
         if path is not None:
@@ -152,7 +153,8 @@ class BayesianOptimization:
 
             model, likelihood = initialize_model(
                 self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
-                num_iter_gp, lengthscale_prior, mean_prior, noise_prior
+                num_iter_gp, lengthscale_prior, lengthscale_constraint,
+                mean_prior, noise_prior
             )
 
             if path is not None:
@@ -250,4 +252,4 @@ class BayesianOptimization:
         return ei
 
     def dictionarize(self, params: np.ndarray) -> Dict[str, float]:
-        return {name: val for name, val in zip(self.params.keys(), params)}
+        return {name: float(val) for name, val in zip(self.params.keys(), params)}
