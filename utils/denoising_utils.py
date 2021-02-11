@@ -11,7 +11,7 @@ def get_noisy_image(img_np: np.ndarray, sigma: float, domain: str = 'xray'):
     """
     noise = np.random.normal(scale=sigma, size=img_np.shape)
     if domain == 'us':
-        img_noisy_np = img_np + np.exp(noise)
+        img_noisy_np = np.exp(np.log(img_np + 1e-6) + noise)
     else:
         img_noisy_np = img_np + noise
     img_noisy_np = np.clip(img_noisy_np, 0, 1).astype(np.float32)
