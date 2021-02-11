@@ -15,7 +15,6 @@ import torch.nn.functional as F
 import numpy as np
 import fire
 from tqdm import tqdm
-import lpips
 
 from models.downsampler import Downsampler
 
@@ -49,7 +48,8 @@ reg_noise_std = 0.
 exp_weight = 0.99
 
 
-def inpainting(img_name: str = 'skin_lesion3',
+def inpainting(exp_name: str = None,
+               img_name: str = 'skin_lesion0',
                criterion: str = 'nll',
                num_iter: int = 50000,
                num_scales: int = 6,
@@ -78,16 +78,23 @@ def inpainting(img_name: str = 'skin_lesion3',
     dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     log_dir = [f'{str(k)}_{str(v)[:4]}' for k, v in net_specs.items()]
-    if path_log_dir is None:
-        path_log_dir = '/media/fastdata/toelle/logs_midl_inp/%s_%s_%s' % ('_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
-    else:
-        path_log_dir = '%s/%s_%s_%s' % (path_log_dir, '_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
+    if exp_name is None:
+        exp_name = f"%s_%s_%s" % ('_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
 
-    if platform.system() == 'Linux':
-        os.mkdir(path_log_dir)
+    if path_log_dir is None:
+        path_log_dir = '/media/fastdata/toelle/logs_midl_inp/%s' % exp_name
+    else:
+        path_log_dir = '%s/%s' % (path_log_dir, exp_name)
+
+    if save:
+        if not os.path.exists(path_log_dir):
+            os.mkdir(path_log_dir)
         with open(path_log_dir + '/net_info.json', 'w') as f:
             info = net_specs.copy()
             info["num_scales"] = num_scales
+            info["criterion"] = criterion
+            info["img_name"] = img_name
+            info["imsize"] = imsize
             json.dump(info, f, indent=4)
 
     imgs = get_imgs(img_name, 'inpainting', imsize=imsize)
@@ -120,7 +127,7 @@ def inpainting(img_name: str = 'skin_lesion3',
 
         if reg_noise_std > 0:
             net_input = net_input_saved + (noise.normal_() * reg_noise_std)
-
+        
         ELBO, out, _ = closure(net, optimizer, net_input, img_torch, criterion, mask=img_mask_torch)
 
         if out_avg is None:

@@ -25,6 +25,7 @@ def bo(
     exp_name: str = "bo",
     trials: int = 10,
     num_iter_eval_fn: int = 10000,
+    num_iter_gp: int = 1000,
     n_init: int = 4,
     criterion: str = 'nll',
     metric: str = "psnr_gt_sm",
@@ -80,7 +81,7 @@ def bo(
 
     params = {p["name"]: p["bounds"] for p in config["parameter"]}
     lengthscale_prior = config["lengthscale_prior"] if "lengthscale_prior" in list(config.keys()) else dict(concentration=0.3, rate=1.)
-    lengthscale_constraint = config["lengthscale_constraint"] if "lengthscale_constraint" list(config.keys()) else 0.05
+    lengthscale_constraint = config["lengthscale_constraint"] if "lengthscale_constraint" in list(config.keys()) else 0.05
     #  25. only for denoising the rest is lower
     mean_prior = config["mean_prior"] if "mean_prior" in list(config.keys()) else dict(loc=25., scale=2.)
     noise_prior = config["noise_prior"] if "noise_prior" in list(config.keys()) else dict(concentration=1e-2, rate=100.)
@@ -102,7 +103,8 @@ def bo(
     best_params = bayesian_optimization.optimize(
         trials=trials, plot=True, gpu=gpu, path=log_dir,
         lengthscale_prior=lengthscale_prior, mean_prior=mean_prior,
-        noise_prior=noise_prior, lengthscale_constraint=lengthscale_constraint
+        noise_prior=noise_prior, lengthscale_constraint=lengthscale_constraint,
+        num_iter_gp=num_iter_gp
     )
 
     print(best_params)

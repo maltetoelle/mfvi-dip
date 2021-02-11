@@ -168,6 +168,7 @@ def save_run(results: dict,
 def get_imgs(img_name: str,
              task: str = 'super-resolution',
              sigma: float = 0.1,
+             domain: str = 'xray',
              imsize: Union[Tuple[int], int] = -1,
              factor: int = 4,
              enforce_div32: str = 'CROP'):
@@ -178,7 +179,7 @@ def get_imgs(img_name: str,
     elif task == 'denoising':
         img_pil = crop_image(get_image(fname, imsize)[0], d=32)
         img_np = pil_to_np(img_pil)
-        img_noisy_pil, img_noisy_np = get_noisy_image(img_np, sigma)
+        img_noisy_pil, img_noisy_np = get_noisy_image(img_np, sigma, domain)
         imgs = {'gt': img_np, 'noisy': img_noisy_np}
     elif task == 'inpainting':
         img_pil, img_np = get_image(fname, imsize)

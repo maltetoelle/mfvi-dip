@@ -40,7 +40,8 @@ reg_noise_std = 1./10. # 1./30.
 exp_weight = 0.99
 
 
-def denoising(img_name: str = 'xray',
+def denoising(exp_name: str = None,
+              img_name: str = 'xray',
               criterion: str = 'nll',
               num_iter: int = 50000,
               sigma: float = 0.1,
@@ -72,13 +73,17 @@ def denoising(img_name: str = 'xray',
     # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     log_dir = [f'{str(k)}_{str(v)[:4]}' for k, v in net_specs.items()]
+    if exp_name is None:
+        exp_name = f"%s_%s_%s" % ('_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
+
     if path_log_dir is None:
-        path_log_dir = '/media/fastdata/toelle/logs_midl_den/%s_%s_%s' % ('_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
+        path_log_dir = '/media/fastdata/toelle/logs_midl_den/%s' % exp_name
     else:
-        path_log_dir = '%s/%s_%s_%s' % (path_log_dir, '_'.join(log_dir), img_name, datetime.now().strftime("%m_%d_%Y_%H_%M_%S"))
+        path_log_dir = '%s/%s' % (path_log_dir, exp_name)
 
     if save:
-        os.mkdir(path_log_dir)
+        if not os.path.exists(path_log_dir):
+            os.mkdir(path_log_dir)
         with open(path_log_dir + '/net_info.json', 'w') as f:
             info = net_specs.copy()
             info["criterion"] = criterion
@@ -87,7 +92,7 @@ def denoising(img_name: str = 'xray',
             info["imsize"] = imsize
             json.dump(info, f, indent=4)
 
-    imgs = get_imgs(img_name, 'denoising', imsize=imsize, sigma=sigma)
+    imgs = get_imgs(img_name, 'denoising', imsize=imsize, sigma=sigma, domain=img_name)
 
     net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2]))#.type(dtype).detach()
 

@@ -1,43 +1,21 @@
 #!/bin/sh
 
-num_iter=1000
+python denoising.py --net_specs '{"sgld_cheng": True, "burnin_iter": 7000, "mcmc_iter": 50}' --optim_specs '{"lr": 3e-4, "weight_decay": 1e-4}' --num_iter 100000 --exp_name den_sgld_xray_100k --gpu 1 --criterion mse
 
-net_specs_mfvi='{"prior_mu": 0.,"prior_sigma": 0.1,"kl_type": "forward","beta": 1e-6}'
-optim_specs_mfvi='{"lr": 0.01}'
+python super_resolution.py --net_specs '{"sgld_cheng": True, "burnin_iter": 7000, "mcmc_iter": 50}' --optim_specs '{"lr": 3e-4, "weight_decay": 1e-4}' --exp_name sr_sgld_mr0 --gpu 1 --criterion mse
 
-net_specs_sgld='{"sgld": True, "burnin_iter": 100, "mcmc_iter": 10}'
-optim_specs_sgld='{"lr": 0.01, "weight_decay": 5e-8}'
-
-net_specs_dip='{}'
-optim_specs_dip='{"lr": 0.01}'
-
-net_specs_mc='{"dropout_type": "2d", "dropout_p": 0.3}'
-optim_specs_mc='{"lr": 0.01, "weight_decay": 3e-4}'
+python inpainting.py --net_specs '{"sgld_cheng": True, "burnin_iter": 7000, "mcmc_iter": 50}' --optim_specs '{"lr": 3e-4, "weight_decay": 1e-4}' --exp_name inp_sgld_skin_lesion0 --gpu 1 --criterion mse
 
 
-python denoising.py --net_specs $net_specs_mfvi --optim_specs $optim_specs_mfvi --num_iter num_iter
+python denoising.py --net_specs '{}' --optim_specs '{"lr": 3e-4}' --num_iter 100000 --exp_name den_dip_xray_100k --gpu 1 --num_iter 100000 --criterion mse
 
-python super_resolution.py --net_specs $net_specs_mfvi --optim_specs $optim_specs_mfvi --num_iter num_iter
+python super_resolution.py --net_specs '{}' --optim_specs '{"lr": 3e-4}' --exp_name sr_dip_mr0 --gpu 1 --criterion mse
 
-python inpainting.py --net_specs $net_specs_mfvi --optim_specs $optim_specs_mfvi --num_iter num_iter
-
-
-python denoising.py --net_specs $net_specs_sgld --optim_specs $optim_specs_sgld --num_iter num_iter
-
-python super_resolution.py --net_specs $net_specs_sgld --optim_specs $optim_specs_sgld --num_iter num_iter
-
-python inpainting.py --net_specs $net_specs_sgld --optim_specs $optim_specs_sgld --num_iter num_iter
+python inpainting.py --net_specs '{}' --optim_specs '{"lr": 3e-4}' --exp_name inp_dip_skin_lesion0 --gpu 1 --criterion mse
 
 
-python denoising.py --net_specs $net_specs_dip --optim_specs $optim_specs_dip --num_iter num_iter
+# python denoising.py --net_specs $net_specs_mc --optim_specs $optim_specs_mc --num_iter num_iter --num_iter 100000
 
-python super_resolution.py --net_specs $net_specs_dip --optim_specs $optim_specs_dip --num_iter num_iter
+python super_resolution.py --net_specs '{"dropout_type": "2d", "dropout_p": 0.3}' --optim_specs '{"lr": 3e-4, "weight_decay": 1e-4}' --exp_name sr_mcd_mr0 --gpu 1
 
-python inpainting.py --net_specs $net_specs_dip --optim_specs $optim_specs_dip --num_iter num_iter
-
-
-python denoising.py --net_specs $net_specs_mc --optim_specs $optim_specs_mc --num_iter num_iter
-
-python super_resolution.py --net_specs $net_specs_mc --optim_specs $optim_specs_mc --num_iter num_iter
-
-python inpainting.py --net_specs $net_specs_mc --optim_specs $optim_specs_mc --num_iter num_iter
+python inpainting.py --net_specs '{"dropout_type": "2d", "dropout_p": 0.3}' --optim_specs '{"lr": 3e-4, "weight_decay": 1e-4}' --exp_name inp_mcd_skin_lesion0 --gpu 1

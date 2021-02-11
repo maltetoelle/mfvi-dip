@@ -28,7 +28,7 @@
   "loc": 25.0,
   "scale": 2.0
  },
- "noise_prior" = {
+ "noise_prior": {
   "concentration": 1e-2,
   "rate": 100.0
  }

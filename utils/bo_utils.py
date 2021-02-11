@@ -65,7 +65,7 @@ class GPModel(ExactGP):
 
 def initialize_model(train_x: Tensor,
                      train_y: Tensor,
-                     num_iter: int = 100,
+                     num_iter: int = 1000,
                      lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
                      lengthscale_constraint: float = 0.01,
                      mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
