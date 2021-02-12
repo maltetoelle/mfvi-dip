@@ -39,6 +39,20 @@ mc_iter = 10
 reg_noise_std = 1./10. # 1./30.
 exp_weight = 0.99
 
+import pdb
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
+
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
 
 def denoising(exp_name: str = None,
               img_name: str = 'xray',
@@ -64,9 +78,9 @@ def denoising(exp_name: str = None,
     seed:
     net_specs: dropout_type, dropout_p, prior_mu, prior_sigma, prior_pi, kl_type, beta_type, sgld, burnin_iter, mcmc_iter
     """
-
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
     device = 'cuda:' + str(gpu)
 
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
@@ -98,16 +112,12 @@ def denoising(exp_name: str = None,
 
     num_output_channels = imgs['gt'].shape[0] + 1
 
-    # img_noisy_torch = np_to_torch(imgs['noisy']).type(dtype)
-    # img_torch = np_to_torch(imgs['gt']).type(dtype)
-
     if net is None and optimizer is None:
         net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
 
-        # net = net.type(dtype)
-        net = net.to(device)
+    net = net.to(device)
 
-    net_input = net_input.to(device).detach()
+    net_input = net_input.detach().to(device).detach()
     img_noisy_torch = np_to_torch(imgs['noisy']).to(device)
     img_torch = np_to_torch(imgs['gt']).to(device)
 

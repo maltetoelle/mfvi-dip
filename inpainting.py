@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import Optimizer
 import numpy as np
 import fire
 from tqdm import tqdm
@@ -58,7 +59,9 @@ def inpainting(exp_name: str = None,
                net_specs: dict = {},
                optim_specs: dict = None,
                path_log_dir: str = None,
-               save: bool = True) -> Dict[str, List[float]]:
+               save: bool = True,
+               net: nn.Module = None,
+               optimizer: Optimizer = None) -> Dict[str, List[float]]:
 
     """
     Params
@@ -71,11 +74,13 @@ def inpainting(exp_name: str = None,
     net_specs: dropout_type, dropout_p, prior_mu, prior_sigma, prior_pi, kl_type, beta_type, sgld, burnin_iter, mcmc_iter
     """
 
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+    device = 'cuda:' + str(gpu)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
-    dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+    # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     log_dir = [f'{str(k)}_{str(v)[:4]}' for k, v in net_specs.items()]
     if exp_name is None:
@@ -99,21 +104,22 @@ def inpainting(exp_name: str = None,
 
     imgs = get_imgs(img_name, 'inpainting', imsize=imsize)
 
-    net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2])).type(dtype).detach()
+    net_input = get_noise(num_input_channels, 'noise', (imgs['gt'].shape[1], imgs['gt'].shape[2])).to(device).detach()#.type(dtype).detach()
 
     num_output_channels = imgs['gt'].shape[0] + 1
 
-    img_torch = np_to_torch(imgs['gt']).type(dtype)
-    img_mask_torch = np_to_torch(imgs['mask']).type(dtype)
+    img_torch = np_to_torch(imgs['gt']).to(device)#.type(dtype)
+    img_mask_torch = np_to_torch(imgs['mask']).to(device)#.type(dtype)
 
-    net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, filter_size_down, filter_size_up, filter_size_skip, upsample_mode=upsample_mode, pad=pad, need1x1_up=need1x1_up, net_specs=net_specs, optim_specs=optim_specs)
+    if net is None and optimizer is None:
+        net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, filter_size_down, filter_size_up, filter_size_skip, upsample_mode=upsample_mode, pad=pad, need1x1_up=need1x1_up, net_specs=net_specs, optim_specs=optim_specs)
 
-    net = net.type(dtype)
+    net = net.to(device)#.type(dtype)
 
     if criterion == 'nll':
-        criterion = NLLLoss2d(reduction='mean').type(dtype)
+        criterion = NLLLoss2d(reduction='mean').to(device)#.type(dtype)
     else:
-        criterion = nn.MSELoss(reduction='mean').type(dtype)
+        criterion = nn.MSELoss(reduction='mean').to(device)#.type(dtype)
 
     net_input_saved = net_input.detach().clone()
     noise = net_input.detach().clone()
@@ -127,7 +133,7 @@ def inpainting(exp_name: str = None,
 
         if reg_noise_std > 0:
             net_input = net_input_saved + (noise.normal_() * reg_noise_std)
-        
+
         ELBO, out, _ = closure(net, optimizer, net_input, img_torch, criterion, mask=img_mask_torch)
 
         if out_avg is None:

@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import Optimizer
 import numpy as np
 import fire
 from tqdm import tqdm
@@ -52,7 +53,9 @@ def super_resolution(exp_name: str = None,
                      net_specs: dict = {},
                      optim_specs: dict = None,
                      path_log_dir: str = None,
-                     save: bool = True) -> Dict[str, List[float]]:
+                     save: bool = True,
+                     net: nn.Module = None,
+                     optimizer: Optimizer = None) -> Dict[str, List[float]]:
 
     """
     Params
@@ -69,8 +72,9 @@ def super_resolution(exp_name: str = None,
     net_specs: dropout_type, dropout_p, prior_mu, prior_sigma, prior_pi, kl_type, beta_type
     """
 
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
 
     # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
     # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
@@ -116,7 +120,8 @@ def super_resolution(exp_name: str = None,
 
     downsampler = Downsampler(n_planes=imgs['LR_np'].shape[0]+1, factor=factor, kernel_type=kernel_type, kernel_width=2*factor, sigma=0.5, phase=0.5, preserve_size=True).to(device)#.type(dtype)
 
-    net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
+    if net is None and optimizer is None:
+        net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
 
     # net = net.type(dtype)
     net = net.to(device)
@@ -138,7 +143,7 @@ def super_resolution(exp_name: str = None,
 
         if reg_noise_std > 0:
             net_input = net_input_saved + (noise.normal_() * reg_noise_std)
-        
+
         ELBO, out_HR, out_LR = closure(net, optimizer, net_input, img_LR_var, criterion, downsampler)
 
         if out_avg is None:

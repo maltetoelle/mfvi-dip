@@ -10,6 +10,7 @@ sns.set()
 
 from scipy.stats import norm
 from scipy.optimize import minimize
+from scipy.signal import find_peaks, find_peaks_cwt
 
 import torch
 from torch import Tensor
@@ -56,25 +57,38 @@ class BayesianOptimization:
 
         self.params_space = torch.from_numpy(self.params_space.astype(np.float32))
 
-        self.params_samples = torch.tensor([])
+        # self.params_samples = torch.tensor([[]])
         self.cost_samples = torch.tensor([])
 
         if initial_params_vals is not None:
-            for i in range(len(initial_params_vals[list(initial_params_vals.keys())[0]])):
-                self.params_samples = torch.cat([
-                    self.params_samples, torch.tensor([vals[i] for vals in initial_params_vals.values()])
-                ], dim=0)
-                cost_sample = self.obj_fn({name: val[i] for name, val in initial_params_vals.items()})
-                # initial_params_vals = torch.tensor(list(initial_params_vals.values()))
-                # TODO: reshape for more than 1 param
-                # cost_sample = self.obj_fn(initial_params_vals.reshape(-1, len(self.params)))
-                self.cost_samples = torch.cat([self.cost_samples, torch.tensor(cost_sample)], dim=0)
+            # for i in range(len(initial_params_vals[list(initial_params_vals.keys())[0]])):
+
+            # params_sample = torch.tensor([[vals[i] for vals in initial_params_vals.values()]])
+            # if i == 0:
+            #     self.params_samples = params_sample
+            # else:
+            #     self.params_samples = torch.cat([
+            #         self.params_samples, params_sample
+            #     ], dim=0)
+            # cost_sample = self.obj_fn({name: val[i] for name, val in initial_params_vals.items()})
+            initial_params_vals = torch.tensor(list(initial_params_vals.values())).reshape(-1, 1)
+            # TODO: reshape for more than 1 param
+            self.params_samples = initial_params_vals
+            cost_sample = self.obj_fn(initial_params_vals.reshape(-1, len(self.params)))
+            self.cost_samples = torch.cat([self.cost_samples, torch.tensor(cost_sample)], dim=0)
+
         else:
             for i in range(n_init):
-                params_sample = torch.tensor([np.random.uniform(bounds[0], bounds[1]) for bounds in self.params.values()])
-                self.params_samples = torch.cat([self.params_samples, params_sample], dim=0)
-                cost_sample = self.obj_fn(self.dictionarize(params_sample))
-                # cost_sample = self.obj_fn(params_sample)
+                params_sample = torch.tensor([[np.random.uniform(bounds[0], bounds[1]) for bounds in self.params.values()]])
+                if i == 0:
+                    self.params_samples = params_sample
+                else:
+                    self.params_samples = torch.cat([
+                        self.params_samples, params_sample
+                    ], dim=0)
+                # cost_sample = self.obj_fn(self.dictionarize(params_sample))
+
+                cost_sample = self.obj_fn(params_sample)
                 self.cost_samples = torch.cat([self.cost_samples, torch.tensor(cost_sample)], dim=0)
 
         # other acquisition functions can be added here
@@ -88,7 +102,8 @@ class BayesianOptimization:
 
     def optimize(self,
                  trials: int = 10,
-                 # n_restarts: int = 25,
+                 batch_size: int = 1,
+                 n_restarts: int = 25,
                  num_iter_gp: int = 100,
                  plot: bool = False,
                  gpu: int = 0,
@@ -109,10 +124,11 @@ class BayesianOptimization:
             Best parameters
         '''
         device = f'cuda:{gpu}' if torch.cuda.is_available() else 'cpu'
+        round_tensor = lambda t, n_digits=3: torch.round(t * 10**n_digits) / (10**n_digits)
         results = {}
 
         model, likelihood = initialize_model(
-            self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
+            self.params_samples.to(device), self.cost_samples.flatten().to(device),
             num_iter_gp, lengthscale_prior, lengthscale_constraint, mean_prior, noise_prior
         )
 
@@ -127,20 +143,42 @@ class BayesianOptimization:
         for i in range(1, trials+1):
 
             # Obtain next sampling point from the acquisition fct.
-            # needed for 2D?
-            # next_params = self.propose_location(n_restarts)
-            acquisition = self.eval_acq(self.params_space.numpy(), model, likelihood)
-            next_params = self.params_space[np.argmax(acquisition)]
+            # not as exact but needed for 2D
+
+            if self.params_samples.size(-1) > 1:
+                # multiple params, multiple samples
+                next_params = self.propose_location(model, likelihood, n_restarts, batch_size)
+            elif batch_size > 1:
+                acquisition = self.eval_acq(self.params_space.numpy(), model, likelihood)
+                # multiple samples, one param -> batched training of eval_fn
+                # acq_peaks_idx = find_peaks_cwt(acquisition.flatten(), np.arange(1, 10))
+                acq_peaks_idx = find_peaks(
+                    np.pad(acquisition.flatten(), (10,10), 'minimum'),
+                    prominence=0.1*(acquisition.max() - acquisition.min())
+                )[0]
+                acq_peaks_idx = np.clip(acq_peaks_idx - 10, 0, self.params_space.size(0) - 1)
+                acq_peaks = acquisition[acq_peaks_idx.astype(np.int64)].flatten()
+                acq_peaks_idx = acq_peaks_idx[acq_peaks.argsort()][-batch_size:]
+                next_params = self.params_space[acq_peaks_idx]
+            else:
+                acquisition = self.eval_acq(self.params_space.numpy(), model, likelihood)
+                # one sample, one param
+                next_params = self.params_space[np.argmax(acquisition)].unsqueeze(0)
+
+            # check if next_params already exists
+            mask = torch.tensor([(p != round_tensor(self.params_samples)).all() for p in round_tensor(next_params)])
+            next_params = next_params[mask]
 
             # Obtain next noisy sample from the objective fct.
-            next_cost = self.obj_fn(self.dictionarize(next_params))
-            # next_cost = self.obj_fn(next_params)
+            # next_cost = self.obj_fn(self.dictionarize(next_params))
+            next_cost = self.obj_fn(next_params)
 
             if plot:
                 _path = f"{path}/acq_plot_{i}.pdf" if path is not None else None
                 if len(self.params) == 1:
                     plot_optimization(
-                        model, likelihood, self.eval_acq, self.params_space.to(device),
+                        model, likelihood, acquisition,
+                        next_params, self.params_space.to(device),
                         self.params_samples, self.cost_samples, _path
                     )
                 # elif len(self.params) == 2:
@@ -148,11 +186,11 @@ class BayesianOptimization:
                 else:
                     print('Plotting just up to 2 dimensions possible.')
 
-            self.params_samples = torch.cat([self.params_samples, torch.tensor(next_params)], dim=0)
-            self.cost_samples = torch.cat([self.cost_samples, torch.tensor(next_cost)], dim=0)
+            self.params_samples = torch.cat([self.params_samples, next_params], dim=0)
+            self.cost_samples = torch.cat([self.cost_samples, next_cost], dim=0)
 
             model, likelihood = initialize_model(
-                self.params_samples.flatten().to(device), self.cost_samples.flatten().to(device),
+                self.params_samples.to(device), self.cost_samples.flatten().to(device),
                 num_iter_gp, lengthscale_prior, lengthscale_constraint,
                 mean_prior, noise_prior
             )
@@ -172,7 +210,11 @@ class BayesianOptimization:
         return self.params_samples[np.argmin(self.cost_samples)]
 
 
-    def propose_location(self, n_restarts: int = 25) -> np.ndarray:
+    def propose_location(self,
+                         model: ExactGP,
+                         likelihood: GaussianLikelihood,
+                         n_restarts: int = 25,
+                         batch_size: int = 1) -> np.ndarray:
         '''
         Proposes the next sampling point by optimizing the acquisition fct.
 
@@ -188,22 +230,22 @@ class BayesianOptimization:
 
         def min_obj(params):
             # Minimization objective is the negative acquisition function
-            return - self.eval_acq(params).flatten()
+            return - self.eval_acq(params, model, likelihood).flatten()
 
+        results = []
         # Find the best optimum by starting from n_restart different random points.
         for x0 in np.random.uniform(self.bounds[:, 0], self.bounds[:, 1], size=(n_restarts, self.bounds.shape[0])):
             res = minimize(min_obj, x0=x0, bounds=self.bounds, method='L-BFGS-B')
-            if res.fun < min_val:
-                min_val = res.fun[0]
-                min_x = res.x
+            results.append([res.fun[0], res.x[0]])
+            # if res.fun < min_val:
+            #     min_val = res.fun[0]
+            #     min_x = res.x
+        # return min_x.tolist()#.reshape(1, -1)
+        results = np.array(results) * -1
+        acq_peaks_idx = find_peaks_cwt(results[:,0], np.arange(1, 10))
+        acq_peaks = results[:,1][acq_peaks_idx]
+        return np.sort(acq_peaks)[-batch_size:].to_list()
 
-        return min_x.tolist()#.reshape(1, -1)
-
-    # @staticmethod
-    # def local_min(ys: Tensor) -> Tensor:
-    #     return [y for i, y in enumerate(ys)
-    #             if ((i == 0) or (ys[i - 1] >= y))
-    #             and ((i == len(ys) - 1) or (y < ys[i+1]))]
 
     @staticmethod
     def expected_improvement(model: ExactGP,
@@ -233,7 +275,7 @@ class BayesianOptimization:
         dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
         with torch.no_grad():
-            pred = likelihood(model(torch.from_numpy(params_space).flatten().type(dtype)))
+            pred = likelihood(model(torch.from_numpy(params_space).type(dtype)))
             pred_sample = likelihood(model(params_samples.type(dtype)))
 
         mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()

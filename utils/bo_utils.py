@@ -1,5 +1,6 @@
 import sys
 from typing import Dict, List, Tuple, Callable, Union
+import json
 
 from gpytorch.models import ExactGP
 from gpytorch.means import ConstantMean
@@ -105,7 +106,9 @@ def initialize_model(train_x: Tensor,
 
 def plot_optimization(model: ExactGP,
                       likelihood: GaussianLikelihood,
-                      acq_fn: Callable,
+                      # acq_fn: Callable,
+                      acquisition: np.ndarray,
+                      next_params: Tensor,
                       params_space: Tensor,
                       params_samples: Tensor,
                       cost_samples: Tensor,
@@ -118,8 +121,9 @@ def plot_optimization(model: ExactGP,
 
     model.eval()
     likelihood.eval()
+
     with torch.no_grad():
-        pred = likelihood(model(params_space.flatten()))#.type(self.dtype)))
+        pred = likelihood(model(params_space))#.type(self.dtype)))
 
     mu = pred.mean.cpu().numpy()
     lower, upper = pred.confidence_region()
@@ -138,7 +142,7 @@ def plot_optimization(model: ExactGP,
     cost_samples, = ax.plot(p_samples, c_samples, 'kx', mew=3, label='Cost samples')
 
     ax2 = ax.twinx()
-    acquisition = acq_fn(params_space.cpu().numpy(), model, likelihood)
+    # acquisition = acq_fn(params_space.cpu().numpy(), model, likelihood)
     acq_fct, = ax2.plot(p_space,
                         acquisition,
                         color=cp[2],
@@ -156,16 +160,18 @@ def plot_optimization(model: ExactGP,
     yt2 = np.arange(yl2[0] + offset, yl2[1], step)
     # yt2 = np.linspace(yl2[0], yl2[1], len(yt1)-2)
     # yt2 += offset
-    ax2.set_yticks(yt2)
+    ax2.set_yticks(np.round(yt2, 3))
 
     ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
     ax2.set_ylabel(r"Expected Improvement")
     ax.set_xlabel(r"$\sigma_p$")
 
     # if self.next_params:
-    ax.axvline(x=params_space.cpu().numpy()[np.argmax(acquisition)], ls='--', c='r', zorder=10)
+    # ax.axvline(x=params_space.cpu().numpy()[np.argmax(acquisition)], ls='--', c='r', zorder=10)
+    for p in next_params.flatten().cpu().numpy():
+        ax.axvline(x=p, ls='--', c='r', zorder=10)
 
-    ax.legend(handles=[sur_fct, cost_samples, acq_fct], loc='upper right')
+    ax.legend(handles=[sur_fct, cost_samples, acq_fct])#, loc='upper right')
 
     if path is not None:
 
@@ -229,37 +235,53 @@ def plot_convergence(params_samples: Tensor,
 #
 #     plt.show()
 
+import pdb
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
 
-class BatchedDIPProblem:
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
+class BatchedDIPProblem(Module):
 
     def __init__(self,
                  task: str,
                  config: Dict,
                  metric: str = "psnr_gt",
                  img_name: str = "xray",
+                 criterion: str = 'nll',
                  num_iter_eval_fn: int = 10000,
                  save_trials: bool = False,
                  path_log_dir: str = ".",
-                 gpus: List[int] = [0, 1]):
+                 gpus: List[int] = [0, 1],
+                 seed: int = None):
 
-        # super(BatchedDIPProblem, self).__init__()
+        super(BatchedDIPProblem, self).__init__()
 
         if task == "denoising":
             self.fn = denoising
-            # self.path_log_dir = "/bo_den/"
+            self.net_structure = json.load(open("./configs/net_den.json"))
         elif task == "super_resolution":
             self.fn = super_resolution
-            # self.path_log_dir = "/bo_sr/"
+            self.net_structure = json.load(open("./configs/net_sr.json"))
         elif task == "inpainting":
             self.fn = inpainting
-        #     self.path_log_dir = "/bo_inp/"
-        # self.path_log_dir += task + "_" + "_".join(metrics) + "_" + datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
+            self.net_structure = json.load(open("./configs/net_inp.json"))
 
         self.net_params = config["net_params"]
         self.optim_params = config["optim_params"]
         self.net_specs = config["net_specs"]
         self.optim_specs = config["optim_specs"]
         self.metric = metric
+        self.criterion=criterion
+        self.seed = seed
 
         self.params = [p["name"] for p in config["parameter"]]
 
@@ -269,39 +291,32 @@ class BatchedDIPProblem:
         self.path_log_dir = path_log_dir
         self.gpus = gpus
 
-        # mp.set_start_method('spawn')
+        try:
+            mp.set_start_method('spawn')
+        except RuntimeError:
+            print("spawn method has already been set")
 
     def mp_fn(self,
               gpu: int,
               single_params: Tensor,
               results: Tensor,
-              order: int,
-              lpips_loss: lpips.LPIPS):
-
-        # TODO: just for denoising here
-        num_input_channels = 32
-        num_output_channels = 2
-        num_channels_down = 128
-        num_channels_up = 128
-        num_channels_skip = 4
-        num_scales = 5
-        upsample_mode = 'bilinear'
+              order: int):
 
         device = 'cuda:' + str(gpu)
         net_specs = self.net_specs.copy()
         optim_specs = self.optim_specs.copy()
+
         for i, param in enumerate(self.params):
             if param in self.optim_params:
                 optim_specs[param] = single_params[i]
             else:
                 net_specs[param] = single_params[i]
-        net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
 
-        net = net.to(device)
-        lpips_loss = lpips_loss.to(device)
+        net, optimizer = get_net_and_optim(net_specs=net_specs, optim_specs=optim_specs, **self.net_structure)
 
         single_result = self.fn(img_name=self.img_name,
                                 num_iter=self.num_iter_eval_fn,
+                                criterion=self.criterion,
                                 net_specs=net_specs,
                                 optim_specs=optim_specs,
                                 save=self.save_trials,
@@ -309,20 +324,20 @@ class BatchedDIPProblem:
                                 gpu=gpu,
                                 net=net,
                                 optimizer=optimizer,
-                                lpips_loss=lpips_loss)
+                                seed=self.seed)
 
         res = single_result[self.metric][-int(0.1*self.num_iter_eval_fn):]
         results[order] = torch.tensor([np.mean(res)])
 
-    def eval(self, params: Tensor) -> Tensor:
+        results = results[torch.where(results != 0.)[0]]
 
-        results = torch.empty(len(params))
+    def forward(self, params: Tensor) -> Tensor:
+        results = torch.zeros(len(params))
         processes = []
         _gpus = (self.gpus * np.ceil(len(params)/len(self.gpus)).astype('int'))[:len(params)]
-        lpips_loss = lpips.LPIPS(net='alex')
         for order, (single_params, gpu) in enumerate(zip(params, _gpus)):
             print(f"Starting process {order+1}/{len(params)}...")
-            p = mp.Process(target=self.mp_fn, args=(gpu, single_params, results, order, lpips_loss,))
+            p = mp.Process(target=self.mp_fn, args=(gpu, single_params, results, order,))
             p.start()
             processes.append(p)
         print('Waiting for processes to finish')
