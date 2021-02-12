@@ -326,8 +326,8 @@ class BatchedDIPProblem(Module):
                                 optimizer=optimizer,
                                 seed=self.seed)
 
-        res = single_result[self.metric][-int(0.1*self.num_iter_eval_fn):]
-        results[order] = torch.tensor([np.mean(res)])
+        res = single_result[self.metric] # [-int(0.1*self.num_iter_eval_fn):]
+        results[order] = torch.tensor([np.max(res)]) # ([np.mean(res)])
 
         results = results[torch.where(results != 0.)[0]]
 
