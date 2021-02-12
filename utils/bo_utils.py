@@ -308,9 +308,9 @@ class BatchedDIPProblem(Module):
 
         for i, param in enumerate(self.params):
             if param in self.optim_params:
-                optim_specs[param] = single_params[i]
+                optim_specs[param] = float(single_params[i])
             else:
-                net_specs[param] = single_params[i]
+                net_specs[param] = float(single_params[i])
 
         net, optimizer = get_net_and_optim(net_specs=net_specs, optim_specs=optim_specs, **self.net_structure)
 

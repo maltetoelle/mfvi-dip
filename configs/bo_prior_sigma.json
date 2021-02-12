@@ -5,7 +5,7 @@
   "beta": 1e-6
  },
  "optim_specs": {
-  "lr": 0.03
+  "lr": 3e-4
  },
  "parameter": [
   {
@@ -25,7 +25,7 @@
  },
  "lengthscale_constraint": 0.05,
  "mean_prior": {
-  "loc": 25.0,
+  "loc": 30.0,
   "scale": 2.0
  },
  "noise_prior": {
