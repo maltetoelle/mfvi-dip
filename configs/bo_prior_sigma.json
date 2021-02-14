@@ -5,7 +5,7 @@
   "beta": 1e-6
  },
  "optim_specs": {
-  "lr": 3e-4
+  "lr": 0.01
  },
  "parameter": [
   {
