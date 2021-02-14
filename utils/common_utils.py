@@ -23,10 +23,16 @@ import matplotlib
 def get_fname(img_name):
     if img_name == 'xray':
         fname = 'data/bayesian/BACTERIA-1351146-0006.jpg'
+    if img_name == 'xray2':
+        fname = 'data/bayesian/VIRUS-9815549-0001.png'
     elif img_name == 'oct':
         fname = 'data/bayesian/CNV-9997680-30.png'
+    elif img_name == 'oct2':
+        fname = 'data/bayesian/CNV-7902439-111.png'
     elif img_name == 'us':
         fname = 'data/bayesian/081_HC.jpg'
+    elif img_name == 'us2':
+        fname = 'data/bayesian/196_HC.png'
 
     elif img_name == 'mri0':
         fname = 'data/sr/MRI/img_203.png'
