@@ -271,13 +271,13 @@ class BayesianOptimization:
         # make prediction for whole parameter space
         model.eval()
         likelihood.eval()
-        
+
         device = model.covar_module.base_kernel.lengthscale.device
         # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
         with torch.no_grad():
-            pred = likelihood(model(torch.from_numpy(params_space).to(device)))
-            pred_sample = likelihood(model(params_samples.to(device)))
+            pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
+            pred_sample = likelihood(model(params_samples.double().to(device)))
 
         mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()
         mu_sample = pred_sample.mean.cpu().numpy()
