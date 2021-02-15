@@ -210,16 +210,16 @@ def plot_optimization(model: ExactGP,
     # yt2 += offset
     ax2.set_yticks(np.round(yt2, 3))
 
-    ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
-    ax2.set_ylabel(r"Expected Improvement")
-    ax.set_xlabel(r"$\sigma_p$")
+    ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$", fontsize=22)
+    ax2.set_ylabel(r"Expected Improvement", fontsize=22)
+    ax.set_xlabel(r"$\sigma_p$", fontsize=22)
 
     # if self.next_params:
     # ax.axvline(x=params_space.cpu().numpy()[np.argmax(acquisition)], ls='--', c='r', zorder=10)
     for p in next_params.flatten().cpu().numpy():
         ax.axvline(x=p, ls='--', c='r', zorder=10)
 
-    ax.legend(handles=[sur_fct, cost_samples, acq_fct])#, loc='upper right')
+    ax2.legend(handles=[sur_fct, cost_samples, acq_fct], loc='lower right')
 
     if path is not None:
         plt.tight_layout()
