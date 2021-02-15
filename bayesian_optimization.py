@@ -147,8 +147,8 @@ class BayesianOptimization:
             # not as exact but needed for 2D
 
             next_params = self.propose_location(
-                model, likelihood, self.params_space,
-                self.bounds, n_restars, batch_size
+                model, likelihood, self.eval_acq, self.params_space,
+                self.bounds, n_restarts, batch_size
             )
 
             # check if next_params already exists
@@ -195,10 +195,10 @@ class BayesianOptimization:
 
         return self.params_samples[np.argmin(self.cost_samples)]
 
-
     @staticmethod
     def propose_location(model: ExactGP,
                          likelihood: GaussianLikelihood,
+                         eval_acq: Callable,
                          params_space: Tensor,
                          bounds: np.ndarray,
                          n_restarts: int = 25,
@@ -206,11 +206,12 @@ class BayesianOptimization:
 
         if params_space.size(-1) > 1:
             # multiple params, multiple samples
+            # not working here!
             next_params = self.propose_location_multidim(
                 model, likelihood, bounds, n_restarts, batch_size
             )
         elif batch_size > 1:
-            acquisition = self.eval_acq(params_space.numpy(), model, likelihood)
+            acquisition = eval_acq(params_space.numpy(), model, likelihood)
             # multiple samples, one param -> batched training of eval_fn
             # acq_peaks_idx = find_peaks_cwt(acquisition.flatten(), np.arange(1, 10))
             acq_peaks_idx = find_peaks(
