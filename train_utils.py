@@ -152,17 +152,20 @@ def save_run(results: dict,
     torch.save(results, path + '/results.pt')
 
     if plot:
-        np_plot(results, ['mse_corrupted'], labels=[r'corrupted'], ylabel=r'$MSE(d(\hat{\bm{x}}),\tilde{\bm{x}})$', path=path + '/mse_corrupted_losses.png')
-        np_plot(results, ['mse_gt'], labels=[r'gt'], ylabel=r'$MSE(\hat{\bm{x}},\bm{x})$', path=path + '/mse_gt_losses.png')
+        try:
+            np_plot(results, ['mse_corrupted'], labels=[r'corrupted'], ylabel=r'$MSE(d(\hat{\bm{x}}),\tilde{\bm{x}})$', path=path + '/mse_corrupted_losses.png')
+            np_plot(results, ['mse_gt'], labels=[r'gt'], ylabel=r'$MSE(\hat{\bm{x}},\bm{x})$', path=path + '/mse_gt_losses.png')
 
-        # np_plot(results, ['elbo'], ylabel=r'$NLL(\hat{\bm{x}},\tilde{\bm{x}})$', path=path + '/losses.png')
+            # np_plot(results, ['elbo'], ylabel=r'$NLL(\hat{\bm{x}},\tilde{\bm{x}})$', path=path + '/losses.png')
 
-        # psnr plot
-        labels = ['corrupted', 'gt', 'gt\_sm']
-        np_plot(results, ['psnr_corrupted', 'psnr_gt', 'psnr_gt_sm'], labels, r'iteration', r'PSNR', path + '/psnrs.png')
+            # psnr plot
+            labels = ['corrupted', 'gt', 'gt\_sm']
+            np_plot(results, ['psnr_corrupted', 'psnr_gt', 'psnr_gt_sm'], labels, r'iteration', r'PSNR', path + '/psnrs.png')
 
-        # ssim plot
-        np_plot(results, ['ssim_corrupted', 'ssim_gt', 'ssim_gt_sm'], labels, r'iteration', r'SSIM', path + '/ssims.png')
+            # ssim plot
+            np_plot(results, ['ssim_corrupted', 'ssim_gt', 'ssim_gt_sm'], labels, r'iteration', r'SSIM', path + '/ssims.png')
+        except:
+            print("On colab, plotting with latex not possible")
 
 
 def get_imgs(img_name: str,
