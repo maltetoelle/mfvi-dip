@@ -17,7 +17,7 @@ from torch import Tensor
 from gpytorch.models import ExactGP
 from gpytorch.likelihoods import GaussianLikelihood
 
-from utils.bo_utils import GPModel, initialize_model, plot_optimization, plot_convergence
+from utils.bo_utils import GPModel, initialize_model, plot_optimization, plot_convergence, expected_improvement
 
 class BayesianOptimization:
     '''
@@ -88,15 +88,15 @@ class BayesianOptimization:
                     ], dim=0)
                 # cost_sample = self.obj_fn(self.dictionarize(params_sample))
 
-                import pdb; pdb.set_trace()
                 cost_sample = self.obj_fn(params_sample)
                 self.cost_samples = torch.cat([self.cost_samples, torch.tensor(cost_sample)], dim=0)
 
         # other acquisition functions can be added here
         if type(acq_fn) == str:
             if acq_fn == 'expected_improvement':
-                # TODO: move expected improvement out of the class
-                self.acq_fn = self.expected_improvement
+                self.acq_fn = expected_improvement
+        else:
+            self.acq_fn = acq_fn
 
         self.eval_acq = lambda params, model, likelihood: self.acq_fn(model, likelihood, params.reshape(-1, len(self.params)), self.params_samples, self.cost_samples, **acq_kwargs)
 
@@ -146,25 +146,10 @@ class BayesianOptimization:
             # Obtain next sampling point from the acquisition fct.
             # not as exact but needed for 2D
 
-            if self.params_samples.size(-1) > 1:
-                # multiple params, multiple samples
-                next_params = self.propose_location(model, likelihood, n_restarts, batch_size)
-            elif batch_size > 1:
-                acquisition = self.eval_acq(self.params_space.numpy(), model, likelihood)
-                # multiple samples, one param -> batched training of eval_fn
-                # acq_peaks_idx = find_peaks_cwt(acquisition.flatten(), np.arange(1, 10))
-                acq_peaks_idx = find_peaks(
-                    np.pad(acquisition.flatten(), (10,10), 'minimum'),
-                    prominence=0.1*(acquisition.max() - acquisition.min())
-                )[0]
-                acq_peaks_idx = np.clip(acq_peaks_idx - 10, 0, self.params_space.size(0) - 1)
-                acq_peaks = acquisition[acq_peaks_idx.astype(np.int64)].flatten()
-                acq_peaks_idx = acq_peaks_idx[acq_peaks.argsort()][-batch_size:]
-                next_params = self.params_space[acq_peaks_idx]
-            else:
-                acquisition = self.eval_acq(self.params_space.numpy(), model, likelihood)
-                # one sample, one param
-                next_params = self.params_space[np.argmax(acquisition)].unsqueeze(0)
+            next_params = self.propose_location(
+                model, likelihood, self.params_space,
+                self.bounds, n_restars, batch_size
+            )
 
             # check if next_params already exists
             mask = torch.tensor([(p != round_tensor(self.params_samples)).all() for p in round_tensor(next_params)])
@@ -211,11 +196,46 @@ class BayesianOptimization:
         return self.params_samples[np.argmin(self.cost_samples)]
 
 
-    def propose_location(self,
-                         model: ExactGP,
+    @staticmethod
+    def propose_location(model: ExactGP,
                          likelihood: GaussianLikelihood,
+                         params_space: Tensor,
+                         bounds: np.ndarray,
                          n_restarts: int = 25,
-                         batch_size: int = 1) -> np.ndarray:
+                         batch_size: int = 1):
+
+        if params_space.size(-1) > 1:
+            # multiple params, multiple samples
+            next_params = self.propose_location_multidim(
+                model, likelihood, bounds, n_restarts, batch_size
+            )
+        elif batch_size > 1:
+            acquisition = self.eval_acq(params_space.numpy(), model, likelihood)
+            # multiple samples, one param -> batched training of eval_fn
+            # acq_peaks_idx = find_peaks_cwt(acquisition.flatten(), np.arange(1, 10))
+            acq_peaks_idx = find_peaks(
+                np.pad(acquisition.flatten(), (10,10), 'minimum'),
+                prominence=0.1*(acquisition.max() - acquisition.min())
+            )[0]
+            acq_peaks_idx = np.clip(acq_peaks_idx - 10, 0, params_space.size(0) - 1)
+            acq_peaks = acquisition[acq_peaks_idx.astype(np.int64)].flatten()
+            acq_peaks_idx = acq_peaks_idx[acq_peaks.argsort()][-batch_size:]
+            next_params = params_space[acq_peaks_idx]
+        else:
+            acquisition = self.eval_acq(params_space.numpy(), model, likelihood)
+            # one sample, one param
+            next_params = params_space[np.argmax(acquisition)].unsqueeze(0)
+
+        return next_params
+
+
+    @staticmethod
+    def propose_location_multidim(self,
+                                  model: ExactGP,
+                                  likelihood: GaussianLikelihood,
+                                  bounds: np.ndarray,
+                                  n_restarts: int = 25,
+                                  batch_size: int = 1) -> np.ndarray:
         '''
         Proposes the next sampling point by optimizing the acquisition fct.
 
@@ -235,8 +255,8 @@ class BayesianOptimization:
 
         results = []
         # Find the best optimum by starting from n_restart different random points.
-        for x0 in np.random.uniform(self.bounds[:, 0], self.bounds[:, 1], size=(n_restarts, self.bounds.shape[0])):
-            res = minimize(min_obj, x0=x0, bounds=self.bounds, method='L-BFGS-B')
+        for x0 in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, bounds.shape[0])):
+            res = minimize(min_obj, x0=x0, bounds=bounds, method='L-BFGS-B')
             results.append([res.fun[0], res.x[0]])
             # if res.fun < min_val:
             #     min_val = res.fun[0]
@@ -247,53 +267,53 @@ class BayesianOptimization:
         acq_peaks = results[:,1][acq_peaks_idx]
         return np.sort(acq_peaks)[-batch_size:].to_list()
 
-
-    @staticmethod
-    def expected_improvement(model: ExactGP,
-                             # gpr,
-                             likelihood: GaussianLikelihood,
-                             params_space: Tensor,
-                             params_samples: Tensor,
-                             cost_samples: Tensor,
-                             xi: float = 0.01) -> Tensor:
-        '''
-        Computes the EI at points for the parameter space based on
-        cost samples using a Gaussian process surrogate model.
-
-        Args:
-            gpr: A GaussianProcessRegressor fitted to samples.
-            params_space: Parameter space at which EI shall be computed (m x d).
-            cost_samples: Sample values (n x 1).
-            xi: Exploitation-exploration trade-off parameter.
-
-        Returns:
-            Expected improvements for paramter space.
-        '''
-        # make prediction for whole parameter space
-        model.eval()
-        likelihood.eval()
-
-        device = model.covar_module.base_kernel.lengthscale.device
-        # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-
-        with torch.no_grad():
-            pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
-            pred_sample = likelihood(model(params_samples.double().to(device)))
-
-        mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()
-        mu_sample = pred_sample.mean.cpu().numpy()
-
-        sigma = sigma.reshape(-1, 1)
-
-        # We have to make sure to not devide by 0
-        with np.errstate(divide='warn'):
-            # imp = mu - np.max(cost_samples.numpy()) - xi # noise free version
-            imp = mu - np.max(mu_sample) - xi
-            Z = imp.reshape(-1,1) / sigma
-            ei = imp.reshape(-1,1) * norm.cdf(Z) + sigma * norm.pdf(Z)
-            ei[sigma == 0.0] = 0.0
-
-        return ei
+    # TODO: delete here!
+    # @staticmethod
+    # def expected_improvement(model: ExactGP,
+    #                          # gpr,
+    #                          likelihood: GaussianLikelihood,
+    #                          params_space: Tensor,
+    #                          params_samples: Tensor,
+    #                          cost_samples: Tensor,
+    #                          xi: float = 0.01) -> Tensor:
+    #     '''
+    #     Computes the EI at points for the parameter space based on
+    #     cost samples using a Gaussian process surrogate model.
+    #
+    #     Args:
+    #         gpr: A GaussianProcessRegressor fitted to samples.
+    #         params_space: Parameter space at which EI shall be computed (m x d).
+    #         cost_samples: Sample values (n x 1).
+    #         xi: Exploitation-exploration trade-off parameter.
+    #
+    #     Returns:
+    #         Expected improvements for paramter space.
+    #     '''
+    #     # make prediction for whole parameter space
+    #     model.eval()
+    #     likelihood.eval()
+    #
+    #     device = model.covar_module.base_kernel.lengthscale.device
+    #     # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    #
+    #     with torch.no_grad():
+    #         pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
+    #         pred_sample = likelihood(model(params_samples.double().to(device)))
+    #
+    #     mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()
+    #     mu_sample = pred_sample.mean.cpu().numpy()
+    #
+    #     sigma = sigma.reshape(-1, 1)
+    #
+    #     # We have to make sure to not devide by 0
+    #     with np.errstate(divide='warn'):
+    #         # imp = mu - np.max(cost_samples.numpy()) - xi # noise free version
+    #         imp = mu - np.max(mu_sample) - xi
+    #         Z = imp.reshape(-1,1) / sigma
+    #         ei = imp.reshape(-1,1) * norm.cdf(Z) + sigma * norm.pdf(Z)
+    #         ei[sigma == 0.0] = 0.0
+    #
+    #     return ei
 
     def dictionarize(self, params: np.ndarray) -> Dict[str, float]:
         return {name: float(val) for name, val in zip(self.params.keys(), params)}

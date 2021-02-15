@@ -104,6 +104,53 @@ def initialize_model(train_x: Tensor,
     return model, likelihood
 
 
+def expected_improvement(model: ExactGP,
+                         # gpr,
+                         likelihood: GaussianLikelihood,
+                         params_space: Tensor,
+                         params_samples: Tensor,
+                         cost_samples: Tensor,
+                         xi: float = 0.01) -> Tensor:
+    '''
+    Computes the EI at points for the parameter space based on
+    cost samples using a Gaussian process surrogate model.
+
+    Args:
+        gpr: A GaussianProcessRegressor fitted to samples.
+        params_space: Parameter space at which EI shall be computed (m x d).
+        cost_samples: Sample values (n x 1).
+        xi: Exploitation-exploration trade-off parameter.
+
+    Returns:
+        Expected improvements for paramter space.
+    '''
+    # make prediction for whole parameter space
+    model.eval()
+    likelihood.eval()
+
+    device = model.covar_module.base_kernel.lengthscale.device
+    # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+
+    with torch.no_grad():
+        pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
+        pred_sample = likelihood(model(params_samples.double().to(device)))
+
+    mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()
+    mu_sample = pred_sample.mean.cpu().numpy()
+
+    sigma = sigma.reshape(-1, 1)
+
+    # We have to make sure to not devide by 0
+    with np.errstate(divide='warn'):
+        # imp = mu - np.max(cost_samples.numpy()) - xi # noise free version
+        imp = mu - np.max(mu_sample) - xi
+        Z = imp.reshape(-1,1) / sigma
+        ei = imp.reshape(-1,1) * norm.cdf(Z) + sigma * norm.pdf(Z)
+        ei[sigma == 0.0] = 0.0
+
+    return ei
+
+
 def plot_optimization(model: ExactGP,
                       likelihood: GaussianLikelihood,
                       # acq_fn: Callable,
@@ -162,12 +209,9 @@ def plot_optimization(model: ExactGP,
     # yt2 += offset
     ax2.set_yticks(np.round(yt2, 3))
 
-    #ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
-    #ax2.set_ylabel(r"Expected Improvement")
-    #ax.set_xlabel(r"$\sigma_p$")
-    #ax.set_ylabel("PSNR(x,x)")
-    #ax2.set_ylabel("Expected Improvement")
-    #ax.set_xlabel("sigma_p")
+    ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
+    ax2.set_ylabel(r"Expected Improvement")
+    ax.set_xlabel(r"$\sigma_p$")
 
     # if self.next_params:
     # ax.axvline(x=params_space.cpu().numpy()[np.argmax(acquisition)], ls='--', c='r', zorder=10)
@@ -179,6 +223,7 @@ def plot_optimization(model: ExactGP,
     if path is not None:
         plt.tight_layout()
         plt.savefig(path, bbox_inches='tight')
+
     plt.show()
 
 def plot_convergence(params_samples: Tensor,
