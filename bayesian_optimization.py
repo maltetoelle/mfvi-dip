@@ -88,6 +88,7 @@ class BayesianOptimization:
                     ], dim=0)
                 # cost_sample = self.obj_fn(self.dictionarize(params_sample))
 
+                import pdb; pdb.set_trace()
                 cost_sample = self.obj_fn(params_sample)
                 self.cost_samples = torch.cat([self.cost_samples, torch.tensor(cost_sample)], dim=0)
 

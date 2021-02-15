@@ -165,9 +165,9 @@ def plot_optimization(model: ExactGP,
     #ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
     #ax2.set_ylabel(r"Expected Improvement")
     #ax.set_xlabel(r"$\sigma_p$")
-    ax.set_ylabel("PSNR(x,x)")
-    ax2.set_ylabel("Expected Improvement")
-    ax.set_xlabel("sigma_p")
+    #ax.set_ylabel("PSNR(x,x)")
+    #ax2.set_ylabel("Expected Improvement")
+    #ax.set_xlabel("sigma_p")
 
     # if self.next_params:
     # ax.axvline(x=params_space.cpu().numpy()[np.argmax(acquisition)], ls='--', c='r', zorder=10)
@@ -177,7 +177,6 @@ def plot_optimization(model: ExactGP,
     ax.legend(handles=[sur_fct, cost_samples, acq_fct])#, loc='upper right')
 
     if path is not None:
-
         plt.tight_layout()
         plt.savefig(path, bbox_inches='tight')
     plt.show()
@@ -208,8 +207,11 @@ def plot_convergence(params_samples: Tensor,
     ax2.set_title('Value of best selected sample')
 
     if path is not None:
-        plt.tight_layout()
-        plt.savefig(path, bbox_inches='tight')
+        try:
+            plt.tight_layout()
+            plt.savefig(path, bbox_inches='tight')
+        except:
+            plt.savefig(path)#, bbox_inches='tight')
 
     plt.show()
 
