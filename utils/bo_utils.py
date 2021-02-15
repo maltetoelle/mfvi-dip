@@ -162,9 +162,12 @@ def plot_optimization(model: ExactGP,
     # yt2 += offset
     ax2.set_yticks(np.round(yt2, 3))
 
-    ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
-    ax2.set_ylabel(r"Expected Improvement")
-    ax.set_xlabel(r"$\sigma_p$")
+    #ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$")
+    #ax2.set_ylabel(r"Expected Improvement")
+    #ax.set_xlabel(r"$\sigma_p$")
+    ax.set_ylabel("PSNR(x,x)")
+    ax2.set_ylabel("Expected Improvement")
+    ax.set_xlabel("sigma_p")
 
     # if self.next_params:
     # ax.axvline(x=params_space.cpu().numpy()[np.argmax(acquisition)], ls='--', c='r', zorder=10)
