@@ -94,7 +94,7 @@ def initialize_model(train_x: Tensor,
     pbar = tqdm(range(num_iter), file=sys.stdout)
     for i in pbar:
         optimizer.zero_grad()
-        output = model(train_x)
+        output = model(train_x.double())
         loss = -mll(output, train_y)
         loss.backward()
         optimizer.step()
