@@ -210,8 +210,8 @@ def plot_optimization(model: ExactGP,
     # yt2 += offset
     ax2.set_yticks(np.round(yt2, 3))
 
-    ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$", fontsize=22)
-    ax2.set_ylabel(r"Expected Improvement", fontsize=22)
+    ax.set_ylabel(r"PSNR$(\bm{x},\hat{\bm{x}})$", fontsize=17)
+    ax2.set_ylabel(r"Expected Improvement", fontsize=17)
     ax.set_xlabel(r"$\sigma_p$", fontsize=22)
 
     # if self.next_params:
