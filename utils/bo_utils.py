@@ -123,7 +123,7 @@ def plot_optimization(model: ExactGP,
     likelihood.eval()
 
     with torch.no_grad():
-        pred = likelihood(model(params_space))#.type(self.dtype)))
+        pred = likelihood(model(params_space.double()))#.type(self.dtype)))
 
     mu = pred.mean.cpu().numpy()
     lower, upper = pred.confidence_region()
