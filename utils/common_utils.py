@@ -50,9 +50,9 @@ def get_fname(img_name):
         fname = 'data/sr/MRI/img_255.png'
 
     elif img_name == 'ct0':
-        fname = 'data/sr/CT/ct0.png'
+        fname = 'data/sr/CT/ct0_res.png'
     elif img_name == 'ct1':
-        fname = 'data/sr/CT/ct1.png'
+        fname = 'data/sr/CT/ct1_res.png'
     elif img_name == 'ct2':
         fname = 'data/sr/CT/ct2.png'
     elif img_name == 'ct3':

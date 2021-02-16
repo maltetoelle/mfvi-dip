@@ -103,12 +103,12 @@ def super_resolution(exp_name: str = None,
 
     imgs = get_imgs(img_name, 'super_resolution', imsize=imsize, factor=factor, enforce_div32=enforce_div32)
 
-    if factor == 4:
-        reg_noise_std = 0.03
-    elif factor == 8:
-        reg_noise_std = 0.05
-    else:
-        assert False, 'We did not experiment with other factors'
+    # if factor == 4:
+    reg_noise_std = 0.03
+    # elif factor == 8:
+    #     reg_noise_std = 0.05
+    # else:
+    #     assert False, 'We did not experiment with other factors'
 
     net_input = get_noise(num_input_channels, 'noise', (imgs['HR_np'].shape[1], imgs['HR_np'].shape[2]))#.type(dtype).detach()
 
@@ -118,7 +118,7 @@ def super_resolution(exp_name: str = None,
     img_LR_var = np_to_torch(imgs['LR_np']).to(device)#.type(dtype)
     img_HR_var = np_to_torch(imgs['HR_np']).to(device)#.type(dtype)
 
-    downsampler = Downsampler(n_planes=imgs['LR_np'].shape[0]+1, factor=factor, kernel_type=kernel_type, kernel_width=factor, sigma=0.5, phase=0.5, preserve_size=True).to(device)#.type(dtype)
+    downsampler = Downsampler(n_planes=imgs['LR_np'].shape[0]+1, factor=factor, kernel_type=kernel_type, kernel_width=2*factor, sigma=0.5, phase=0.5, preserve_size=True).to(device)#.type(dtype)
 
     if net is None and optimizer is None:
         net, optimizer = get_net_and_optim(num_input_channels, num_output_channels, num_channels_down, num_channels_up, num_channels_skip, num_scales, net_specs=net_specs, optim_specs=optim_specs)
