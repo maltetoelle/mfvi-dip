@@ -70,17 +70,17 @@ def get_fname(img_name):
         fname = 'data/inpainting/library.png'
 
     elif img_name == "skin_lesion0":
-        fname = "data/inpainting/skin_lesions/hair_0.png"
+        fname = "data/inpainting/skin_lesions/hair_0_res.png"
     elif img_name == "skin_lesion1":
-        fname = "data/inpainting/skin_lesions/hair_1.png"
+        fname = "data/inpainting/skin_lesions/hair_1_res.png"
     elif img_name == "skin_lesion2":
-        fname = "data/inpainting/skin_lesions/hair_2.png"
+        fname = "data/inpainting/skin_lesions/hair_2_res.png"
     elif img_name == "skin_lesion3":
-        fname = "data/inpainting/skin_lesions/hair_3.png"
+        fname = "data/inpainting/skin_lesions/hair_3_res.png"
     elif img_name == "skin_lesion4":
-        fname = "data/inpainting/skin_lesions/hair_4.png"
+        fname = "data/inpainting/skin_lesions/hair_4_res.png"
     elif img_name == "skin_lesion5":
-        fname = "data/inpainting/skin_lesions/hair_5.png"
+        fname = "data/inpainting/skin_lesions/hair_5_res.png"
 
     return fname
 
