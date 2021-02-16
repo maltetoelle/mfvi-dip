@@ -99,7 +99,7 @@ def analyse_calibration_sgld(img_list: List[torch.Tensor],
 
 def np_eval_plot(xs, ys, labels=None, sigma=0, xlabel=r'iteration',
                  ylabel='', xtlf='', ytlf='', title=None,
-                 ylim=None, xlim=None, path=None):
+                 ylim=None, xlim=None, step=10, path=None):
     if labels is None:
         labels = ['' for _ in range(len(xs))]
 
@@ -108,7 +108,7 @@ def np_eval_plot(xs, ys, labels=None, sigma=0, xlabel=r'iteration',
     for x, y, l in zip(xs, ys, labels):
         if sigma > 0:
             y = gaussian_filter1d(y, sigma=sigma)
-        plot = ax.plot(x[::10], y[::10], label=l)
+        plot = ax.plot(x[::step], y[::step], label=l)
         handles.append(plot[0])
     ax.set_xlabel(xlabel)#, fontsize=22)
     ax.set_ylabel(ylabel)#, fontsize=22)
