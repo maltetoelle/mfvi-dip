@@ -160,6 +160,7 @@ class BayesianOptimization:
             next_cost = self.obj_fn(next_params)
 
             if plot:
+                acquisition = self.eval_acq(self.params_space.numpy(), model, likelihood)
                 _path = f"{path}/acq_plot_{i}.pdf" if path is not None else None
                 if len(self.params) == 1:
                     plot_optimization(
@@ -195,8 +196,9 @@ class BayesianOptimization:
 
         return self.params_samples[np.argmin(self.cost_samples)]
 
-    @staticmethod
-    def propose_location(model: ExactGP,
+
+    def propose_location(self,
+                         model: ExactGP,
                          likelihood: GaussianLikelihood,
                          eval_acq: Callable,
                          params_space: Tensor,
@@ -223,7 +225,7 @@ class BayesianOptimization:
             acq_peaks_idx = acq_peaks_idx[acq_peaks.argsort()][-batch_size:]
             next_params = params_space[acq_peaks_idx]
         else:
-            acquisition = self.eval_acq(params_space.numpy(), model, likelihood)
+            acquisition = eval_acq(params_space.numpy(), model, likelihood)
             # one sample, one param
             next_params = params_space[np.argmax(acquisition)].unsqueeze(0)
 
