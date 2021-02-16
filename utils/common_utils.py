@@ -70,7 +70,7 @@ def get_fname(img_name):
         fname = 'data/inpainting/library.png'
 
     elif img_name == "skin_lesion0":
-        fname = "data/inpainting/skin_lesions/hair_0.png"
+        fname = "data/inpainting/skin_lesions/hair_0_res.png"
     elif img_name == "skin_lesion1":
         fname = "data/inpainting/skin_lesions/hair_1_res.png"
     elif img_name == "skin_lesion2":
