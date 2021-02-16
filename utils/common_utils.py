@@ -35,9 +35,11 @@ def get_fname(img_name):
         fname = 'data/bayesian/196_HC.png'
 
     elif img_name == 'mri0':
-        fname = 'data/sr/MRI/img_203.png'
+        # fname = 'data/sr/MRI/img_203.png'
+        fname = 'data/sr/MRI/img_203_res.png'
     elif img_name == 'mri1':
-        fname = 'data/sr/MRI/img_139.png'
+        # fname = 'data/sr/MRI/img_139.png'
+        fname = 'data/sr/MRI/img_139_res.png'
     elif img_name == 'mri2':
         fname = 'data/sr/MRI/img_147.png'
     elif img_name == 'mri3':
