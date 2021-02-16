@@ -17,7 +17,7 @@ from torch import Tensor
 from gpytorch.models import ExactGP
 from gpytorch.likelihoods import GaussianLikelihood
 
-from utils.bo_utils import GPModel, initialize_model, plot_optimization, plot_convergence, expected_improvement
+from utils.bo_utils import GPModel, initialize_model, plot_optimization, plot_convergence, expected_improvement, propose_location_multidim
 
 class BayesianOptimization:
     '''
@@ -196,9 +196,8 @@ class BayesianOptimization:
 
         return self.params_samples[np.argmin(self.cost_samples)]
 
-
-    def propose_location(self,
-                         model: ExactGP,
+    @staticmethod
+    def propose_location(model: ExactGP,
                          likelihood: GaussianLikelihood,
                          eval_acq: Callable,
                          params_space: Tensor,
@@ -209,7 +208,7 @@ class BayesianOptimization:
         if params_space.size(-1) > 1:
             # multiple params, multiple samples
             # not working here!
-            next_params = self.propose_location_multidim(
+            next_params = propose_location_multidim(
                 model, likelihood, bounds, n_restarts, batch_size
             )
         elif batch_size > 1:
@@ -232,43 +231,43 @@ class BayesianOptimization:
         return next_params
 
 
-    @staticmethod
-    def propose_location_multidim(self,
-                                  model: ExactGP,
-                                  likelihood: GaussianLikelihood,
-                                  bounds: np.ndarray,
-                                  n_restarts: int = 25,
-                                  batch_size: int = 1) -> np.ndarray:
-        '''
-        Proposes the next sampling point by optimizing the acquisition fct.
-
-        Args:
-            n_restars: restarts for minimizer to find max of acquisition fct.
-
-        Returns:
-            Location of the acquisition function maximum
-        '''
-
-        min_val = 1
-        min_x = None
-
-        def min_obj(params):
-            # Minimization objective is the negative acquisition function
-            return - self.eval_acq(params, model, likelihood).flatten()
-
-        results = []
-        # Find the best optimum by starting from n_restart different random points.
-        for x0 in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, bounds.shape[0])):
-            res = minimize(min_obj, x0=x0, bounds=bounds, method='L-BFGS-B')
-            results.append([res.fun[0], res.x[0]])
-            # if res.fun < min_val:
-            #     min_val = res.fun[0]
-            #     min_x = res.x
-        # return min_x.tolist()#.reshape(1, -1)
-        results = np.array(results) * -1
-        acq_peaks_idx = find_peaks_cwt(results[:,0], np.arange(1, 10))
-        acq_peaks = results[:,1][acq_peaks_idx]
-        return np.sort(acq_peaks)[-batch_size:].to_list()
+    # @staticmethod
+    # def propose_location_multidim(model: ExactGP,
+    #                               likelihood: GaussianLikelihood,
+    #                               eval_acq: Callable,
+    #                               bounds: np.ndarray,
+    #                               n_restarts: int = 25,
+    #                               batch_size: int = 1) -> np.ndarray:
+    #     '''
+    #     Proposes the next sampling point by optimizing the acquisition fct.
+    #
+    #     Args:
+    #         n_restars: restarts for minimizer to find max of acquisition fct.
+    #
+    #     Returns:
+    #         Location of the acquisition function maximum
+    #     '''
+    #
+    #     min_val = 1
+    #     min_x = None
+    #
+    #     def min_obj(params):
+    #         # Minimization objective is the negative acquisition function
+    #         return - eval_acq(params, model, likelihood).flatten()
+    #
+    #     results = []
+    #     # Find the best optimum by starting from n_restart different random points.
+    #     for x0 in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, bounds.shape[0])):
+    #         res = minimize(min_obj, x0=x0, bounds=bounds, method='L-BFGS-B')
+    #         results.append([res.fun[0], res.x[0]])
+    #         # if res.fun < min_val:
+    #         #     min_val = res.fun[0]
+    #         #     min_x = res.x
+    #     # return min_x.tolist()#.reshape(1, -1)
+    #     results = np.array(results) * -1
+    #     acq_peaks_idx = find_peaks_cwt(results[:,0], np.arange(1, 10))
+    #     acq_peaks = results[:,1][acq_peaks_idx]
+    #     return np.sort(acq_peaks)[-batch_size:].to_list()
 
     # TODO: delete here!
     # @staticmethod

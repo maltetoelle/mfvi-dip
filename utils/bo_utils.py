@@ -152,6 +152,44 @@ def expected_improvement(model: ExactGP,
     return ei
 
 
+def propose_location_multidim(model: ExactGP,
+                              likelihood: GaussianLikelihood,
+                              eval_acq: Callable,
+                              bounds: np.ndarray,
+                              n_restarts: int = 25,
+                              batch_size: int = 1) -> np.ndarray:
+    '''
+    Proposes the next sampling point by optimizing the acquisition fct.
+
+    Args:
+        n_restars: restarts for minimizer to find max of acquisition fct.
+
+    Returns:
+        Location of the acquisition function maximum
+    '''
+
+    min_val = 1
+    min_x = None
+
+    def min_obj(params):
+        # Minimization objective is the negative acquisition function
+        return - eval_acq(params, model, likelihood).flatten()
+
+    results = []
+    # Find the best optimum by starting from n_restart different random points.
+    for x0 in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, bounds.shape[0])):
+        res = minimize(min_obj, x0=x0, bounds=bounds, method='L-BFGS-B')
+        results.append([res.fun[0], res.x[0]])
+        # if res.fun < min_val:
+        #     min_val = res.fun[0]
+        #     min_x = res.x
+    # return min_x.tolist()#.reshape(1, -1)
+    results = np.array(results) * -1
+    acq_peaks_idx = find_peaks_cwt(results[:,0], np.arange(1, 10))
+    acq_peaks = results[:,1][acq_peaks_idx]
+    return np.sort(acq_peaks)[-batch_size:].to_list()
+
+
 def plot_optimization(model: ExactGP,
                       likelihood: GaussianLikelihood,
                       # acq_fn: Callable,
