@@ -20,11 +20,9 @@ from tqdm import tqdm
 from models.downsampler import Downsampler
 
 from utils.common_utils import get_noise, np_to_torch
+from utils.bayesian_utils import NLLLoss, add_noise_sgld, uncert_regression_gal
 from train_utils import closure, track_training, get_imgs, save_run, get_net_and_optim, get_mc_preds, track_uncert_sgld
 
-from BayTorch.inference.losses import NLLLoss2d, uceloss
-from BayTorch.inference.utils import uncert_regression_gal
-from BayTorch.optimizer.sgld import SGLD, add_noise_sgld
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = False
@@ -37,7 +35,7 @@ num_scales = 5
 upsample_mode = 'bilinear'
 
 imsize = -1 # (320, 320)
-enforce_div32 = 'CROP' # we usually need the dimensions to be divisible by a power of two (32 in this case)
+enforce_div32 = 'CROP'
 
 mc_iter = 10
 exp_weight = 0.99
@@ -76,9 +74,8 @@ def super_resolution(exp_name: str = None,
         torch.manual_seed(seed)
         np.random.seed(seed)
 
-    # os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
-    # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
     device = 'cuda:' + str(gpu)
+    # torch.set_num_threads(1)
 
     log_dir = [f'{str(k)}_{str(v)[:4]}' for k, v in net_specs.items()]
     if exp_name is None:
@@ -127,7 +124,7 @@ def super_resolution(exp_name: str = None,
     net = net.to(device)
 
     if criterion == 'nll':
-        criterion = NLLLoss2d(reduction='mean').to(device)#.type(dtype)
+        criterion = NLLLoss(reduction='mean').to(device)#.type(dtype)
     else:
         criterion = nn.MSELoss(reduction='mean').to(device)#.type(dtype)
 
@@ -136,7 +133,7 @@ def super_resolution(exp_name: str = None,
 
     out_avg = None
     results = {}
-    sgld_imgs = [] if isinstance(optimizer, SGLD) or "sgld_cheng" in list(net_specs.keys()) else None
+    sgld_imgs = [] if "sgld_cheng" in list(net_specs.keys()) else None
 
     pbar = tqdm(range(1, num_iter+1))
     for i in pbar:
@@ -153,9 +150,8 @@ def super_resolution(exp_name: str = None,
 
         results = track_training(img_LR_var, img_HR_var, dict(to_corrupted=out_LR, to_gt=out_HR, to_gt_sm=out_avg), results)
 
-        if isinstance(optimizer, SGLD) or "sgld_cheng" in list(net_specs.keys()):
-            sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out_LR.detach(), **net_specs)
         if "sgld_cheng" in list(net_specs.keys()):
+            sgld_imgs = track_uncert_sgld(sgld_imgs=sgld_imgs, iter=i, img=out_LR.detach(), **net_specs)
             add_noise_sgld(net, 2 * optim_specs["lr"])
 
         pbar.set_description('I: %d | ELBO: %.2f | PSNR_LR: %.2f | PSNR_HR: %.2f | PSNR_HR_gt_sm: %.2f' % (i, ELBO.item(), results['psnr_corrupted'][-1], results['psnr_gt'][-1], results['psnr_gt_sm'][-1]))

@@ -133,36 +133,3 @@ def get_kernel(factor, kernel_type, phase, kernel_width, support=None, sigma=Non
     kernel /= kernel.sum()
 
     return kernel
-
-#a = Downsampler(n_planes=3, factor=2, kernel_type='lanczos2', phase='1', preserve_size=True)
-
-
-
-
-
-
-#################
-# Learnable downsampler
-
-# KS = 32
-# dow = nn.Sequential(nn.ReplicationPad2d(int((KS - factor) / 2.)), nn.Conv2d(1,1,KS,factor))
-
-# class Apply(nn.Module):
-#     def __init__(self, what, dim, *args):
-#         super(Apply, self).__init__()
-#         self.dim = dim
-
-#         self.what = what
-
-#     def forward(self, input):
-#         inputs = []
-#         for i in range(input.size(self.dim)):
-#             inputs.append(self.what(input.narrow(self.dim, i, 1)))
-
-#         return torch.cat(inputs, dim=self.dim)
-
-#     def __len__(self):
-#         return len(self._modules)
-
-# downs = Apply(dow, 1)
-# downs.type(dtype)(net_input.type(dtype)).size()

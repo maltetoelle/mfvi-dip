@@ -1,66 +1,48 @@
+from typing import List, Union, Tuple
+
 import torch
 import torch.nn as nn
 import torchvision
-import sys
-# import tensorflow as tf
 
 import numpy as np
 from PIL import Image
-import PIL
 import numpy as np
-import math
-# import cv2
-import io
-from collections import OrderedDict
-import subprocess
-import re
-import cv2
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import matplotlib
 
-def get_fname(img_name):
+
+def get_fname(img_name: str) -> str:
+    """Convenience fn. for getting image by its abbreviation.
+
+    Args:
+        img_name: abbreviation of image
+    """
+
     if img_name == 'xray':
         fname = 'data/bayesian/BACTERIA-1351146-0006.jpg'
     if img_name == 'xray2':
         fname = 'data/bayesian/VIRUS-9815549-0001.png'
+
     elif img_name == 'oct':
         fname = 'data/bayesian/CNV-9997680-30.png'
     elif img_name == 'oct2':
         fname = 'data/bayesian/CNV-7902439-111.png'
+
     elif img_name == 'us':
         fname = 'data/bayesian/081_HC.jpg'
     elif img_name == 'us2':
         fname = 'data/bayesian/196_HC.png'
 
     elif img_name == 'mri0':
-        # fname = 'data/sr/MRI/img_203.png'
         fname = 'data/sr/MRI/img_203_res.png'
     elif img_name == 'mri1':
-        # fname = 'data/sr/MRI/img_139.png'
-        fname = 'data/sr/MRI/img_139_res.png'
-    elif img_name == 'mri2':
-        fname = 'data/sr/MRI/img_147.png'
-    elif img_name == 'mri3':
-        fname = 'data/sr/MRI/img_153.png'
-    elif img_name == 'mri4':
-        fname = 'data/sr/MRI/img_229.png'
-    elif img_name == 'mri5':
-        fname = 'data/sr/MRI/img_255.png'
+        fname = 'data/sr/MRI/img_139_res384.png'
 
     elif img_name == 'ct0':
         fname = 'data/sr/CT/ct0_res.png'
     elif img_name == 'ct1':
         fname = 'data/sr/CT/ct1_res.png'
-    elif img_name == 'ct2':
-        fname = 'data/sr/CT/ct2.png'
-    elif img_name == 'ct3':
-        fname = 'data/sr/CT/ct3.png'
-    elif img_name == 'ct4':
-        fname = 'data/sr/CT/ct4.png'
-    elif img_name == 'ct5':
-        fname = 'data/sr/CT/ct5.png'
 
     elif img_name == 'peppers':
         fname = 'GP_DIP/data/denoising/Dataset/image_Peppers512rgb.png'
@@ -73,18 +55,10 @@ def get_fname(img_name):
         fname = "data/inpainting/skin_lesions/hair_0_res.png"
     elif img_name == "skin_lesion1":
         fname = "data/inpainting/skin_lesions/hair_1_res.png"
-    elif img_name == "skin_lesion2":
-        fname = "data/inpainting/skin_lesions/hair_2_res.png"
-    elif img_name == "skin_lesion3":
-        fname = "data/inpainting/skin_lesions/hair_3_res.png"
-    elif img_name == "skin_lesion4":
-        fname = "data/inpainting/skin_lesions/hair_4_res.png"
-    elif img_name == "skin_lesion5":
-        fname = "data/inpainting/skin_lesions/hair_5_res.png"
 
     return fname
 
-def crop_image(img, d=32):
+def crop_image(img: np.ndarray, d: int = 32) -> np.ndarray:
     '''Make dimensions divisible by `d`'''
 
     new_size = (img.size[0] - img.size[0] % d,
@@ -100,7 +74,10 @@ def crop_image(img, d=32):
     img_cropped = img.crop(bbox)
     return img_cropped
 
-def get_params(opt_over, net, net_input, downsampler=None):
+def get_params(opt_over: List[str],
+               net: nn.Module,
+               net_input: torch.Tensor,
+               downsampler: nn.Module = None) -> List[torch.Tensor]:
     '''Returns parameters that we want to optimize over.
 
     Args:
@@ -126,14 +103,18 @@ def get_params(opt_over, net, net_input, downsampler=None):
 
     return params
 
-def get_image_grid(images_np, nrow=8):
+def get_image_grid(images_np: List[np.ndarray], nrow: int = 8) -> np.ndarray:
     '''Creates a grid from a list of images by concatenating them.'''
     images_torch = [torch.from_numpy(x) for x in images_np]
     torch_grid = torchvision.utils.make_grid(images_torch, nrow)
 
     return torch_grid.numpy()
 
-def plot_image_grid(images_np, nrow =8, factor=1, interpolation='lanczos', opt='RGB'):
+def plot_image_grid(images_np: List[np.ndarray],
+                    nrow: int = 8,
+                    factor: int = 1,
+                    interpolation: str = 'lanczos',
+                    opt: str = 'RGB') -> np.ndarray:
     """Draws images in a grid
 
     Args:
@@ -162,12 +143,12 @@ def plot_image_grid(images_np, nrow =8, factor=1, interpolation='lanczos', opt='
 
     return grid
 
-def load(path):
+def load(path: str) -> Image:
     """Load PIL image."""
     img = Image.open(path)
     return img
 
-def get_image(path, imsize=-1):
+def get_image(path: str, imsize: Union[Tuple[int], int] = -1) -> Tuple[np.ndarray]:
     """Load an image and resize to a cpecific size.
 
     Args:
@@ -189,7 +170,7 @@ def get_image(path, imsize=-1):
 
     return img, img_np
 
-def fill_noise(x, noise_type):
+def fill_noise(x: torch.Tensor, noise_type: str):
     """Fills tensor `x` with noise of type `noise_type`."""
     if noise_type == 'u':
         x.uniform_()
@@ -198,7 +179,11 @@ def fill_noise(x, noise_type):
     else:
         assert False
 
-def get_noise(input_depth, method, spatial_size, noise_type='u', var=1./10, library='torch', data_format='channels_first'):
+def get_noise(input_depth: int,
+              method: str,
+              spatial_size: int,
+              noise_type: str = 'u',
+              var: float = 1./10) -> torch.Tensor:
     """Returns a pytorch.Tensor of size (1 x `input_depth` x `spatial_size[0]` x `spatial_size[1]`)
     initialized in a specific way.
     Args:
@@ -236,7 +221,7 @@ def get_noise(input_depth, method, spatial_size, noise_type='u', var=1./10, libr
 
     return net_input
 
-def pil_to_np(img_PIL):
+def pil_to_np(img_PIL: Image) -> np.ndarray:
     '''Converts image in PIL format to np.array.
 
     From W x H x C [0...255] to C x W x H [0..1]
@@ -250,7 +235,7 @@ def pil_to_np(img_PIL):
 
     return ar.astype(np.float32) / 255.
 
-def np_to_pil(img_np):
+def np_to_pil(img_np: np.ndarray) -> Image:
     '''Converts image in np.array format to PIL image.
 
     From C x W x H [0..1] to  W x H x C [0...255]
@@ -264,92 +249,26 @@ def np_to_pil(img_np):
 
     return Image.fromarray(ar)
 
-def np_to_torch(img_np):
+def np_to_torch(img_np: np.ndarray) -> torch.Tensor:
     '''Converts image in numpy.array to torch.Tensor.
 
     From C x W x H [0..1] to  C x W x H [0..1]
     '''
     return torch.from_numpy(img_np)[None, :]
 
-def torch_to_np(img_var):
+def torch_to_np(img_var: torch.Tensor) -> np.ndarray:
     '''Converts an image in torch.Tensor format to np.array.
 
     From 1 x C x W x H [0..1] to  C x W x H [0..1]
     '''
     return img_var.detach().cpu().numpy()[0]
 
-def check_gpu(device_no: int = 1):
-    _output = subprocess.check_output(['nvidia-smi', '-q', '-d', 'temperature,power', '-i', str(device_no)])
-    _output = str(_output).split('\\n')
+def init_normal(m: nn.Module):
+    """Init all weight layers with normal distribution"""
+    if type(m) == nn.Conv2d or type(m) == nn.Linear:
+        nn.init.normal_(m.weight, mean=0, std=0.1)
 
-    output = {}
-    suffix = ''
-    for o in _output:
-        _o = o.split(':')
-
-        if len(_o) != 2:
-            if _o[0].strip() == 'Power Samples':
-                suffix = ' Power'
-            continue
-        try:
-            output[_o[0].strip() + suffix] = float(re.compile(r'[^\d.]+').sub("", _o[1]))
-        except:
-            continue
-
-    return output
-
-def fig_to_np(fig, dpi=180):
-    buf = io.BytesIO()
-    # import pdb;pdb.set_trace()
-    if isinstance(fig, matplotlib.image.AxesImage):
-        fig = fig.get_figure()
-    fig.savefig(buf, format="png", dpi=dpi)
-    buf.seek(0)
-    img_pil = Image.open(buf)
-    # img_arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
-    # buf.close()
-    # img = pil_to_np(img_pil)
-    # img = cv2.imdecode(img_arr, 1)
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    # remove 4th channel (transparency)
-    img = np.array(img_pil.getdata()).astype(np.float32)[...,:3].reshape((img_pil.size[0],img_pil.size[1],3))
-
-    return img
-
-def plot_feature_maps(hook):
-    ds = []
-    for i in range(1, hook.shape[0]):
-        if hook.shape[0] % i == 0:
-            ds.append([i, hook.shape[0] / i])
-
-    ds = ds[np.argmin(np.abs(np.diff(np.array(ds), axis=1)))]
-    bd, od = int(max(ds)), int(min(ds))
-
-    fig, axs = plt.subplots(od, bd, constrained_layout=True)
-    plt.axis('off')
-
-    for i in range(hook.shape[0]):
-        ax = axs[int(i / bd), i % bd]
-        ax.imshow(hook[i])
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-    plt.show()
-
-    fig_np = fig_to_np(fig)
-    return fig_np
-
-def init_normal(m):
-    if type(m) == torch.nn.Conv2d:
-        torch.nn.init.normal_(m.weight, mean=0, std=0.1)
-
-def init_uniform(m):
-    if not isinstance(m, nn.BatchNorm2d) and hasattr(m, 'weight'):
-        m.weight.data.uniform_(-0.1, 0.1)
-        if m.bias is not None:
-            m.bias.data.uniform_(-0.1, 0.1)
-
-def weight_reset(m):
+def weight_reset(m: nn.Module):
+    """"Reset weights to initial values"""
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
         m.reset_parameters()

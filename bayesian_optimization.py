@@ -2,14 +2,8 @@ from typing import Union, Callable, Dict
 from itertools import product
 from collections import OrderedDict
 
-import matplotlib.pyplot as plt
 import numpy as np
 
-import seaborn as sns
-sns.set()
-
-from scipy.stats import norm
-from scipy.optimize import minimize
 from scipy.signal import find_peaks, find_peaks_cwt
 
 import torch
@@ -19,27 +13,31 @@ from gpytorch.likelihoods import GaussianLikelihood
 
 from utils.bo_utils import GPModel, initialize_model, plot_optimization, plot_convergence, expected_improvement, propose_location_multidim
 
+
 class BayesianOptimization:
-    '''
-    Class for performing Bayesian optimization.
-    For now only "expected improvement" is possible as acquisition fct.
-    But the code can easily extended to other fct.'s
+    '''Class for performing Bayesian optimization.
+    For now only "expected improvement" is possible as acquisition fn.
+    But the code can easily extended to other fn.'s
 
     Args:
-        kernel: kernel for GP regression (is multiplied with constant kernel)
-        kernel_params: kernel parameters such as lengthscale in format {'length_scale': 0.01}
-        bounds: bounds for the different parameters that shall be optimized
-        obj_fn: objective function that sample the value of the function which to optimize
-        acquisition: Either str for using an already implemented fct.
-                     Or self defined fct. (Callable)
-        n_init: number of initial points to sample from objective function
+        obj_fn: objective function that takes as input a Tensor
+                of params batch_size x param_dimensionality
+        params: dict. of param_name with correspoding bounds
+                {param_name: [lower_bound, upper_bound]}
+        initial_params_vals: intial parameter values to start BO from
+        n_init: if no initial_params_vals defined, draw initial samples
+                uniform from search space defined by parameter bounds
+        acq_fn: Either str for using an already implemented fn. (e.g. "expected_improvement")
+                or self defined fn. (Callable)
+                acq_fn(model, likelihood, params, params_samples, cost_samples, **acq_kwargs)
+        acq_kwargs: additional kwargs for acq_fn
     '''
 
     def __init__(self,
                  obj_fn: Callable,
                  params: Dict[str, np.ndarray],
-                 n_init: int = 1,
                  initial_params_vals: Dict[str, np.ndarray] = None,
+                 n_init: int = 1,
                  acq_fn: Union[Callable, str] = 'expected_improvement',
                  acq_kwargs: Dict[str, float] = {}):
 
@@ -61,16 +59,6 @@ class BayesianOptimization:
         self.cost_samples = torch.tensor([])
 
         if initial_params_vals is not None:
-            # for i in range(len(initial_params_vals[list(initial_params_vals.keys())[0]])):
-
-            # params_sample = torch.tensor([[vals[i] for vals in initial_params_vals.values()]])
-            # if i == 0:
-            #     self.params_samples = params_sample
-            # else:
-            #     self.params_samples = torch.cat([
-            #         self.params_samples, params_sample
-            #     ], dim=0)
-            # cost_sample = self.obj_fn({name: val[i] for name, val in initial_params_vals.items()})
             initial_params_vals = torch.tensor(list(initial_params_vals.values())).reshape(-1, 1)
             # TODO: reshape for more than 1 param
             self.params_samples = initial_params_vals
@@ -104,22 +92,29 @@ class BayesianOptimization:
     def optimize(self,
                  trials: int = 10,
                  batch_size: int = 1,
-                 n_restarts: int = 25,
                  num_iter_gp: int = 100,
                  plot: bool = False,
                  gpu: int = 0,
                  path: str = None,
+                 n_restarts: int = 25,
                  lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
                  lengthscale_constraint: float = 0.01,
                  mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
                  noise_prior: Union[float, Dict[str, float]] = 1e-4) -> Tensor:
-        '''
-        Fct. for performing Bayesian optimization.
+        '''Fn. for performing Bayesian optimization.
 
         Args:
-            n_iter: optimization budget i.e. how many optimizations to perform
-            n_restarts: restarts for minimizer to find max of acquisition fct.
-            plot: wether to plot results during training
+            trials: number of trials (optimization budget)
+            batch_size: batch_size of sampled params
+            num_iter_gp: number of iterations to train GP surrogate model
+            plot: plot results during training
+            path: if not None where to save plots ans results
+            n_restarts: restarts for scipy.optimize.minimize
+            lengthscale_prior: dict. for alpha prior for lengthscale
+                               of GP surrogate model
+            lengthscale_constraint: minimal value for lengthscale
+            mean_prior: Gaussian prior on mean of GP surrogate model
+            noise_prior: either dict for alpha prior or float for constant noise
 
         Returns:
             Best parameters
@@ -204,10 +199,24 @@ class BayesianOptimization:
                          bounds: np.ndarray,
                          n_restarts: int = 25,
                          batch_size: int = 1):
+        """Evaluate acquisition function to propose next params.
+
+        Args:
+            model: GP surrogate model
+            likelihood: likeliood for GP
+            eval_acq: evaluate acquisition function
+                      eval_acq(model, likelihood, params)
+            params_space: parameter space betwwen bounds of params
+            bounds: bounds for parameter space
+            n_restarts: restarts for scipy.optimize.minimize
+            batch_size: batch_size of proposed parameters
+
+        Returns:
+            proposed next parameters
+        """
 
         if params_space.size(-1) > 1:
             # multiple params, multiple samples
-            # not working here!
             next_params = propose_location_multidim(
                 model, likelihood, bounds, n_restarts, batch_size
             )
@@ -230,92 +239,5 @@ class BayesianOptimization:
 
         return next_params
 
-
-    # @staticmethod
-    # def propose_location_multidim(model: ExactGP,
-    #                               likelihood: GaussianLikelihood,
-    #                               eval_acq: Callable,
-    #                               bounds: np.ndarray,
-    #                               n_restarts: int = 25,
-    #                               batch_size: int = 1) -> np.ndarray:
-    #     '''
-    #     Proposes the next sampling point by optimizing the acquisition fct.
-    #
-    #     Args:
-    #         n_restars: restarts for minimizer to find max of acquisition fct.
-    #
-    #     Returns:
-    #         Location of the acquisition function maximum
-    #     '''
-    #
-    #     min_val = 1
-    #     min_x = None
-    #
-    #     def min_obj(params):
-    #         # Minimization objective is the negative acquisition function
-    #         return - eval_acq(params, model, likelihood).flatten()
-    #
-    #     results = []
-    #     # Find the best optimum by starting from n_restart different random points.
-    #     for x0 in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, bounds.shape[0])):
-    #         res = minimize(min_obj, x0=x0, bounds=bounds, method='L-BFGS-B')
-    #         results.append([res.fun[0], res.x[0]])
-    #         # if res.fun < min_val:
-    #         #     min_val = res.fun[0]
-    #         #     min_x = res.x
-    #     # return min_x.tolist()#.reshape(1, -1)
-    #     results = np.array(results) * -1
-    #     acq_peaks_idx = find_peaks_cwt(results[:,0], np.arange(1, 10))
-    #     acq_peaks = results[:,1][acq_peaks_idx]
-    #     return np.sort(acq_peaks)[-batch_size:].to_list()
-
-    # TODO: delete here!
-    # @staticmethod
-    # def expected_improvement(model: ExactGP,
-    #                          # gpr,
-    #                          likelihood: GaussianLikelihood,
-    #                          params_space: Tensor,
-    #                          params_samples: Tensor,
-    #                          cost_samples: Tensor,
-    #                          xi: float = 0.01) -> Tensor:
-    #     '''
-    #     Computes the EI at points for the parameter space based on
-    #     cost samples using a Gaussian process surrogate model.
-    #
-    #     Args:
-    #         gpr: A GaussianProcessRegressor fitted to samples.
-    #         params_space: Parameter space at which EI shall be computed (m x d).
-    #         cost_samples: Sample values (n x 1).
-    #         xi: Exploitation-exploration trade-off parameter.
-    #
-    #     Returns:
-    #         Expected improvements for paramter space.
-    #     '''
-    #     # make prediction for whole parameter space
-    #     model.eval()
-    #     likelihood.eval()
-    #
-    #     device = model.covar_module.base_kernel.lengthscale.device
-    #     # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-    #
-    #     with torch.no_grad():
-    #         pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
-    #         pred_sample = likelihood(model(params_samples.double().to(device)))
-    #
-    #     mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()
-    #     mu_sample = pred_sample.mean.cpu().numpy()
-    #
-    #     sigma = sigma.reshape(-1, 1)
-    #
-    #     # We have to make sure to not devide by 0
-    #     with np.errstate(divide='warn'):
-    #         # imp = mu - np.max(cost_samples.numpy()) - xi # noise free version
-    #         imp = mu - np.max(mu_sample) - xi
-    #         Z = imp.reshape(-1,1) / sigma
-    #         ei = imp.reshape(-1,1) * norm.cdf(Z) + sigma * norm.pdf(Z)
-    #         ei[sigma == 0.0] = 0.0
-    #
-    #     return ei
-
-    def dictionarize(self, params: np.ndarray) -> Dict[str, float]:
-        return {name: float(val) for name, val in zip(self.params.keys(), params)}
+    # def dictionarize(self, params: np.ndarray) -> Dict[str, float]:
+    #     return {name: float(val) for name, val in zip(self.params.keys(), params)}

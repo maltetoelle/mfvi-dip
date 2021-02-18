@@ -5,7 +5,9 @@ from .common import *
 def skip(
         num_input_channels=2,
         num_output_channels=3,
-        num_channels_down=[16, 32, 64, 128, 128], num_channels_up=[16, 32, 64, 128, 128], num_channels_skip=[4, 4, 4, 4, 4],
+        num_channels_down=[16, 32, 64, 128, 128],
+        num_channels_up=[16, 32, 64, 128, 128],
+        num_channels_skip=[4, 4, 4, 4, 4],
         filter_size_down=3,
         filter_size_up=3, filter_skip_size=1,
         need_sigmoid=True,
@@ -14,12 +16,7 @@ def skip(
         upsample_mode='nearest',
         downsample_mode='stride',
         act_fun='LeakyReLU',
-        need1x1_up=True,
-        ffg=False, implicit=False,
-        dropout_mode_down='None', dropout_p_down=0.5,
-        dropout_mode_up='None', dropout_p_up=0.5,
-        dropout_mode_skip='None', dropout_p_skip=0.5,
-        dropout_mode_output='None', dropout_p_output=0.5):
+        need1x1_up=True):
     """Assembles encoder-decoder with skip connections.
 
     Arguments:
@@ -47,9 +44,7 @@ def skip(
         filter_size_up   = [filter_size_up]*n_scales
 
     last_scale = n_scales - 1
-
-    cur_depth = None
-
+    
     model = nn.Sequential()
     model_tmp = model
 
@@ -74,30 +69,22 @@ def skip(
 
         if num_channels_skip[i] != 0:
             skip.add(conv(input_depth, num_channels_skip[i], filter_skip_size,
-                          bias=need_bias, pad=pad,
-                          dropout_mode=dropout_mode_skip, dropout_p=dropout_p_skip, ffg=ffg, implicit=implicit, name="skip_%d" % i))
+                          bias=need_bias, pad=pad))
             skip.add(bn(num_channels_skip[i]))
 
             skip.add(act(act_fun))
-            if dropout_mode_skip == 'afterrelu':
-                skip.add(nn.Dropout2d(p=dropout_p_skip))
 
         # skip.add(Concat(2, GenNoise(nums_noise[i]), skip_part))
 
-        deeper.add(conv(input_depth, num_channels_down[i], filter_size_down[i], 2, bias=need_bias, pad=pad, downsample_mode=downsample_mode[i], dropout_mode=dropout_mode_down, dropout_p=dropout_p_down, ffg=ffg, implicit=implicit, name="down_%d_1" % i))
+        deeper.add(conv(input_depth, num_channels_down[i], filter_size_down[i], 2, bias=need_bias, pad=pad, downsample_mode=downsample_mode[i]))
 
         deeper.add(bn(num_channels_down[i]))
         deeper.add(act(act_fun))
-        if dropout_mode_down == 'afterrelu':
-            deeper.add(nn.Dropout2d(p=dropout_p_down))
 
-        deeper.add(conv(num_channels_down[i], num_channels_down[i], filter_size_down[i], bias=need_bias, pad=pad,
-                        dropout_mode=dropout_mode_down, dropout_p=dropout_p_down, ffg=ffg, implicit=implicit, name="down_%d_2" % i))
+        deeper.add(conv(num_channels_down[i], num_channels_down[i], filter_size_down[i], bias=need_bias, pad=pad))
 
         deeper.add(bn(num_channels_down[i]))
         deeper.add(act(act_fun))
-        if dropout_mode_down == 'afterrelu':
-            deeper.add(nn.Dropout2d(p=dropout_p_down))
 
         deeper_main = nn.Sequential()
 
@@ -110,26 +97,21 @@ def skip(
 
         deeper.add(nn.Upsample(scale_factor=2, mode=upsample_mode[i]))
 
-        model_tmp.add(conv(num_channels_skip[i] + k, num_channels_up[i], filter_size_up[i], 1, bias=need_bias, pad=pad,
-                           dropout_mode=dropout_mode_up, dropout_p=dropout_p_up, ffg=ffg, implicit=implicit, name="up_%d_1" % i))
+        model_tmp.add(conv(num_channels_skip[i] + k, num_channels_up[i], filter_size_up[i], 1, bias=need_bias, pad=pad))
 
         model_tmp.add(bn(num_channels_up[i]))
         model_tmp.add(act(act_fun))
-        if dropout_mode_up == 'afterrelu':
-            model_tmp.add(nn.Dropout2d(p=dropout_p_up))
 
         if need1x1_up:
-            model_tmp.add(conv(num_channels_up[i], num_channels_up[i], 1, bias=need_bias, pad=pad, dropout_mode=dropout_mode_up, dropout_p=dropout_p_up, ffg=ffg, implicit=implicit, name="down_%d_2" % i))
+            model_tmp.add(conv(num_channels_up[i], num_channels_up[i], 1, bias=need_bias, pad=pad))
 
             model_tmp.add(bn(num_channels_up[i]))
             model_tmp.add(act(act_fun))
-            if dropout_mode_up == 'afterrelu':
-                model_tmp.add(nn.Dropout2d(p=dropout_p_up))
 
         input_depth = num_channels_down[i]
         model_tmp = deeper_main
 
-    model.add(conv(num_channels_up[0], num_output_channels, 1, bias=need_bias, pad=pad, dropout_mode=dropout_mode_output, dropout_p=dropout_p_output, ffg=ffg, implicit=implicit, name="out_%d" % i))
+    model.add(conv(num_channels_up[0], num_output_channels, 1, bias=need_bias, pad=pad))
 
     if need_sigmoid:
         model.add(nn.Sigmoid())

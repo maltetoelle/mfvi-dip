@@ -35,10 +35,20 @@ class GPModel(ExactGP):
     def __init__(self,
                  train_x: Tensor,
                  train_y: Tensor,
-                 likelihood: Tensor,
+                 likelihood: GaussianLikelihood,
                  lengthscale_prior: Dict[str, float] = dict(concentration=0.3, rate=1.),
                  lengthscale_constraint: float = 0.01,
                  mean_prior: Dict[str, float] = dict(loc=25., scale=2.)):
+        """GP surrogate model for BO.
+
+        Args:
+            train_x: training data (n x d)
+            train_y: target data (n x 1)
+            likeihood: likelihood for GP
+            lengthscale_prior: dict. with parameters for alpha prior on lengthscale
+            lengthscale_constraint: minimal value for lengthscale
+            mean_prior: dict. with parameters for normal prior of mean fn. of GP
+        """
 
         super(GPModel, self).__init__(train_x, train_y, likelihood)
         self.mean_module = ConstantMean(
@@ -72,6 +82,21 @@ def initialize_model(train_x: Tensor,
                      lengthscale_constraint: float = 0.01,
                      mean_prior: Dict[str, float] = dict(loc=25., scale=2.),
                      noise_prior: Union[float, Dict[str, float]] = 1e-4) -> Tuple[ExactGP, GaussianLikelihood]:
+    """Fn. for initalizing and training surrogate GP model for BO.
+
+    Args:
+        train_x: training data (n x d)
+        train_y: target data (n x 1)
+        num_iter: number of iterations for training GP
+        lengthscale_prior: dict. with parameters for alpha prior on lengthscale
+        lengthscale_constraint: minimal value for lengthscale
+        mean_prior: dict. with parameters for normal prior of mean fn. of GP
+        noise_prior: either dict with parameters for alpha prior for noise
+                     or float for constant noise
+
+    Returns:
+        GP model and corresponding likelihood
+    """
 
     if isinstance(noise_prior, float):
         likelihood = FixedNoiseGaussianLikelihood(
@@ -106,7 +131,6 @@ def initialize_model(train_x: Tensor,
 
 
 def expected_improvement(model: ExactGP,
-                         # gpr,
                          likelihood: GaussianLikelihood,
                          params_space: Tensor,
                          params_samples: Tensor,
@@ -117,9 +141,11 @@ def expected_improvement(model: ExactGP,
     cost samples using a Gaussian process surrogate model.
 
     Args:
-        gpr: A GaussianProcessRegressor fitted to samples.
+        model: surrogate GP model
+        likeliood: corresponding likelihood
         params_space: Parameter space at which EI shall be computed (m x d).
-        cost_samples: Sample values (n x 1).
+        params_samples: already evaluated parameters (n x d)
+        cost_samples: Sample values at params_samples (n x 1).
         xi: Exploitation-exploration trade-off parameter.
 
     Returns:
@@ -130,7 +156,6 @@ def expected_improvement(model: ExactGP,
     likelihood.eval()
 
     device = model.covar_module.base_kernel.lengthscale.device
-    # dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     with torch.no_grad():
         pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
@@ -162,10 +187,15 @@ def propose_location_multidim(model: ExactGP,
     Proposes the next sampling point by optimizing the acquisition fct.
 
     Args:
-        n_restars: restarts for minimizer to find max of acquisition fct.
+        model: surrogate GP model
+        likelihood: corresponding likelihood
+        eval_acq: eval. fn. for acquisition
+        bounds: bounds on params (d x 2)
+        n_restars: restarts for minimizer to find max of acquisition fn.
+        batch_size: number of parameters to propose
 
     Returns:
-        Location of the acquisition function maximum
+        Location of the acquisition function maximums
     '''
 
     min_val = 1
@@ -199,8 +229,17 @@ def plot_optimization(model: ExactGP,
                       params_samples: Tensor,
                       cost_samples: Tensor,
                       path: str = None):
-    '''
-    Helper fct. for plotting results during training.
+    '''Helper fn. for plotting results during training.
+
+    Args:
+        model: surrogate GP model of BO
+        likelihood: corresponding likelihood
+        acquisition: values of the acquisition fn. on parameter space
+        next_params: proposed next parameter
+        params_space: whole parameter space
+        params_samples: already evaluated parameter samples
+        cost_samples: corresponding evaluated costs
+        path: where to save plot. None for no saving
     '''
 
     cp = sns.color_palette()
@@ -269,8 +308,13 @@ def plot_convergence(params_samples: Tensor,
                      cost_samples: Tensor,
                      n_init: int = 0,
                      path: str = None):
-    '''
-    Helper fct. to plot convergence after training.
+    '''Helper fn. to plot convergence after training.
+
+    Args:
+        params_samples: already evaluated parameter values
+        cost_samples: corresponding evaluated costs
+        n_init: number of initial random samples
+        path: where to save plot. None for no saving
     '''
     x = params_samples.numpy()[n_init:].ravel()
     y = cost_samples.numpy()[n_init:].ravel()
@@ -351,6 +395,21 @@ class BatchedDIPProblem(Module):
                  path_log_dir: str = ".",
                  gpus: List[int] = [0, 1],
                  seed: int = None):
+        """Class for performing DIP training with multiple Hyperparams
+        across multiple GPUs.
+
+        Args:
+            task: denoising, super_resolution, inpainting
+            config: config for BO
+            metric: metric to be evaluated in BO
+            img_name: abbreviation of image name
+            criterion: loss fn.
+            num_iter_eval_fn: number of iterations for DIP run
+            save_trials: save DIP runs
+            path_log_dir: where to save DIP runs
+            gpus: list of GPUs on which to perform training
+            seed: seed for reproducibility
+        """
 
         super(BatchedDIPProblem, self).__init__()
 
@@ -390,6 +449,14 @@ class BatchedDIPProblem(Module):
               single_params: Tensor,
               results: Tensor,
               order: int):
+        """Fn. for training one DIP run on one GPU.
+
+        Args:
+            gpu: integer of GPU
+            single_params: hyperparams in net_specs or optim_specs which to optimize
+            results: output Tensor of final results (batch_size x 1)
+            order: order in which it started to set that row in results tensor after trainig
+        """
 
         device = 'cuda:' + str(gpu)
         net_specs = self.net_specs.copy()
@@ -415,12 +482,17 @@ class BatchedDIPProblem(Module):
                                 optimizer=optimizer,
                                 seed=self.seed)
 
-        res = single_result[self.metric] # [-int(0.1*self.num_iter_eval_fn):]
-        results[order] = torch.tensor([np.max(res)]) # ([np.mean(res)])
+        res = single_result[self.metric]
+        results[order] = torch.tensor([np.max(res)])
 
         results = results[torch.where(results != 0.)[0]]
 
     def forward(self, params: Tensor) -> Tensor:
+        """Train multiple DIPs on multiple GPUs
+
+        Args:
+            params: values of parameters to be optimized
+        """
         results = torch.zeros(len(params))
         processes = []
         _gpus = (self.gpus * np.ceil(len(params)/len(self.gpus)).astype('int'))[:len(params)]

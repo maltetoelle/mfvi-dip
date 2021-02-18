@@ -1,17 +1,12 @@
 import os
-from typing import Dict, List, Tuple
+from typing import List
 import json
-from datetime import datetime
 import warnings
 warnings.simplefilter("ignore")
 import numpy as np
 import fire
 
 import torch
-import torch.nn as nn
-import torch.multiprocessing as mp
-
-import sklearn.gaussian_process as gp
 
 from bayesian_optimization import BayesianOptimization
 
@@ -37,6 +32,45 @@ def bo(
     trials_log_dir: str = None,
     gpus: List[int] = [0, 1],
     seed: int = 11):
+    """Fn. for performing BO for MFVI DIP
+
+    Args:
+        exp_name: name of experiment (a directory in log_dir will be created under that name
+                  if log_dir is not set to None)
+        trials: number of trials to optimize the objective fn. (optimization budget)
+        num_iter_eval_fn: how many iterations the objective fn. shall be run
+        batch_size: number of instances of objective fn. to be evaluated in parallel
+        num_iter_gp: number of training iterations for GP surrogate model
+        n_init: if no initial_params_vals in config defined the number of
+                initial samples for the BO
+        criterion: loss fn. for obj. fn.
+        metric: the metric's name as objective for BO (must be in results of obj. fn.)
+        img_name: abbreviation of image on which BO shall be performed
+        task: modality for which to perform BO
+        config: path to json containing the configuration of the BO
+                e.g.:   {"net_specs": {
+                            "prior_mu": 0.0,
+                            "kl_type": "forward",
+                            "beta": 1e-6
+                         },
+                         "optim_specs": {"lr": 0.01},
+                         "parameter": [
+                          {
+                           "name": "prior_sigma",
+                           "bounds": [0.01, 0.4]
+                          }
+                         ],
+                         "net_params": ["prior_sigma"],
+                         "optim_params": [],
+                         "initial_parameter": {
+                          "prior_sigma": [0.075, 0.175, 0.275, 0.375]
+                         }
+                        }
+        log_dir: directory where to store results. None for no saving
+        trials_log_dir: where to store results of trials. None for no saving
+        gpus: list o gpu integers
+        seed: seed for reproducibility
+    """
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -54,25 +88,6 @@ def bo(
     # TODO: make that also False when None for path_log_dir in fns
     save_trials = False if trials_log_dir is None else True
     batch_size = len(gpus) if batch_size is None else batch_size
-
-    # def eval_fn(params: Dict[str, float]) -> List[float]:
-    #     for p_name, p_val in params.items():
-    #         if p_name in config["optim_params"]:
-    #             OPTIM_SPECS[p_name] = p_val
-    #         else:
-    #             NET_SPECS[p_name] = p_val
-    #
-    #     results = fn(img_name=img_name,
-    #                  num_iter=num_iter_eval_fn,
-    #                  criterion=criterion,
-    #                  net_specs=NET_SPECS,
-    #                  optim_specs=OPTIM_SPECS,
-    #                  save=save_trials,
-    #                  path_log_dir=trials_log_dir,
-    #                  gpu=gpu)
-    #
-    #     res = results[metric][-int(0.1*num_iter_eval_fn):]
-    #     return [np.mean(res)]
 
 
     params = {p["name"]: p["bounds"] for p in config["parameter"]}
@@ -97,7 +112,7 @@ def bo(
         params=params,
         initial_params_vals=initial_params_vals,
         n_init=n_init,
-        obj_fn=batched_dip_prob, # eval_fn,
+        obj_fn=batched_dip_prob,
         acq_fn='expected_improvement',
         acq_kwargs=acq_kwargs
     )
