@@ -34,3 +34,7 @@ All evaluations were performed using Jupyter notebooks, `eval.ipynb` for experim
 
 Malte Tölle  
 [malte.toelle@gmail.com](mailto:malte.toelle@gmail.com)  
+
+Max-Heinrich Laves
+[max-heinrich.laves@tuhh.de](mailto:max-heinrich.laves@tuhh.de)
+[@MaxLaves](https://twitter.com/MaxLaves)
