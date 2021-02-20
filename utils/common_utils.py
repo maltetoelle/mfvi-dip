@@ -34,14 +34,14 @@ def get_fname(img_name: str) -> str:
     elif img_name == 'us2':
         fname = 'data/bayesian/196_HC.png'
 
-    elif img_name == 'mri0':
+    elif img_name == 'mri':
         fname = 'data/sr/MRI/img_203_res.png'
-    elif img_name == 'mri1':
+    elif img_name == 'mri2':
         fname = 'data/sr/MRI/img_139_res384.png'
 
-    elif img_name == 'ct0':
+    elif img_name == 'ct':
         fname = 'data/sr/CT/ct0_res.png'
-    elif img_name == 'ct1':
+    elif img_name == 'ct2':
         fname = 'data/sr/CT/ct1_res.png'
 
     elif img_name == 'peppers':
@@ -51,9 +51,9 @@ def get_fname(img_name: str) -> str:
     elif img_name == 'library':
         fname = 'data/inpainting/library.png'
 
-    elif img_name == "skin_lesion0":
+    elif img_name == "skin_lesion":
         fname = "data/inpainting/skin_lesions/hair_0_res.png"
-    elif img_name == "skin_lesion1":
+    elif img_name == "skin_lesion2":
         fname = "data/inpainting/skin_lesions/hair_1_res.png"
 
     return fname
