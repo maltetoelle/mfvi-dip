@@ -1,7 +1,7 @@
 #!/bin/sh
 
 img_name=mri2
-num_iter=5
+num_iter=50000
 
 python3 super_resolution.py --exp_name sr_dip_xray --img_name $img_name --net_specs '{}' --optim-specs '{"lr": 3e-3}' --num_iter $num_iter --criterion mse --path_log_dir ${1-experiments} --gpu ${2-0}
 
