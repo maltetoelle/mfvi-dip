@@ -41,10 +41,10 @@ mc_iter = 10
 exp_weight = 0.99
 
 def super_resolution(exp_name: str = None,
-                     img_name: str = 'mri0',
+                     img_name: str = 'mri',
                      criterion: str = 'nll',
                      num_iter: int = 50000,
-                     factor: int = 4,
+                     factor: int = 2,
                      kernel_type: str = 'lanczos2',
                      gpu: int = 0,
                      seed: int = 42,
@@ -106,7 +106,7 @@ def super_resolution(exp_name: str = None,
     #     reg_noise_std = 0.05
     # else:
     #     assert False, 'We did not experiment with other factors'
-
+    
     net_input = get_noise(num_input_channels, 'noise', (imgs['HR_np'].shape[1], imgs['HR_np'].shape[2]))#.type(dtype).detach()
 
     num_output_channels = imgs['HR_np'].shape[0] + 1

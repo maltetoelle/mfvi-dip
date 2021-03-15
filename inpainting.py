@@ -48,7 +48,7 @@ exp_weight = 0.99
 
 
 def inpainting(exp_name: str = None,
-               img_name: str = 'skin_lesion0',
+               img_name: str = 'skin_lesion',
                criterion: str = 'nll',
                num_iter: int = 50000,
                num_scales: int = 6,
