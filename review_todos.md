@@ -18,7 +18,7 @@
 ## Reviewer4
 
 - [ ] Include sentence about network architecture
-- [ ] Add ground truth images
+- [x] Add ground truth images
 - [ ] Add pseudocode of mathematical concepts to appendix
 - [ ] Add SSIM curves (for SR)
 - [ ] Provide calibration measures
