@@ -31,4 +31,4 @@
 - [ ] add more figures to the appendix showing that the methods do overfit on other modalities as well
 - [x] overfitting
 - [x] move the discussion of shortcomings from other methods to the related work paragraph
-- [ ] compare to non-DIP methods
+- [x] compare to non-DIP methods
