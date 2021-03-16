@@ -17,7 +17,13 @@
 
 ## Reviewer4
 
-- [ ] 
+- [ ] Include sentence about network architecture
+- [ ] Add ground truth images
+- [ ] Add pseudocode of mathematical concepts to appendix
+- [ ] Add SSIM curves (for SR)
+- [ ] Provide calibration measures
+- [ ] Correct typo $q_{\phi}(w)$
+- [ ] Update PSNR curves to show same behavior for OCT
 
 ## Reviewer3
 
