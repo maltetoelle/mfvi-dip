@@ -17,7 +17,7 @@
 
 ## Reviewer4
 
-- [ ] Include sentence about network architecture
+- [x] Include sentence about network architecture
 - [x] Add ground truth images
 - [ ] Add pseudocode of mathematical concepts to appendix
 - [ ] Add SSIM curves (for SR)
