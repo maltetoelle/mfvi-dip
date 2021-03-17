@@ -11,7 +11,7 @@
 ## Reviewer2
 
 - [x] discussion about the complexity
-- [ ] add more information about the image sizes
+- [x] add more information about the image sizes
 - [ ] graphical illustration of the mathematical concepts
 - [ ] add more qualitative results for additional images in the appendix
 
