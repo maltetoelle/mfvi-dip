@@ -2,9 +2,9 @@
 
 ## Reviewer1
 
-- [ ] Re-run experiments and provide error bars
+- [x] Re-run experiments and provide error bars
   - [x] Denoising
-  - [ ] Super-res
+  - [x] Super-res
 - [x] Include Carillo et al.
 - [x] Introduce x
 - [x] Remove the use of the full length words after acronyms
