@@ -22,8 +22,8 @@
 - [x] Include sentence about network architecture
 - [x] Add ground truth images
 - [x] Add pseudocode of mathematical concepts to appendix
-- [ ] Add SSIM curves (for SR)
-- [ ] Provide calibration measures
+- [x] Add SSIM curves (for SR)
+- [x] Provide calibration measures
 - [x] Correct typo $q_{\phi}(w)$
 - [x] Update PSNR curves to show same behavior for OCT
 
