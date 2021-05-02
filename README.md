@@ -10,10 +10,15 @@ Exploiting the deep image prior property of convolutional auto-encoder networks 
 
 ## BibTeX
 
-MIDL2021
+MIDL2021 (accepted)
 
 ```
-under review
+@inproceedings{tolle2021mean,
+  title={A Mean-Field Variational Inference Approach to Deep Image Prior for Inverse Problems in Medical Imaging},
+  author={T{\"o}lle, Malte and Laves, Max-Heinrich and Schlaefer, Alexander},
+  booktitle={Medical Imaging with Deep Learning},
+  year={2021},
+}
 ```
 
 ## How to run the code
