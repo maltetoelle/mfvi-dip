@@ -1,6 +1,6 @@
 #!/bin/sh
 
-trials=10
+trials=3
 num_iter_eval_fn=5
 num_iter_gp=1000
 metric=psnr_gt_sm

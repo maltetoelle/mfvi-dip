@@ -71,7 +71,6 @@ def bo(
         gpus: list o gpu integers
         seed: seed for reproducibility
     """
-
     torch.manual_seed(seed)
     np.random.seed(seed)
 

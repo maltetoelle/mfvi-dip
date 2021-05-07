@@ -79,6 +79,8 @@ class BayesianOptimization:
                 cost_sample = self.obj_fn(params_sample)
                 self.cost_samples = torch.cat([self.cost_samples, torch.tensor(cost_sample)], dim=0)
 
+        self.params_samples = self.params_samples.reshape((self.cost_samples.size(0), -1))
+
         # other acquisition functions can be added here
         if type(acq_fn) == str:
             if acq_fn == 'expected_improvement':
@@ -147,7 +149,7 @@ class BayesianOptimization:
             )
 
             # check if next_params already exists
-            mask = torch.tensor([(p != round_tensor(self.params_samples)).all() for p in round_tensor(next_params)])
+            mask = torch.tensor([(p != round_tensor(self.params_samples)).any() for p in round_tensor(next_params)])
             next_params = next_params[mask]
 
             # Obtain next noisy sample from the objective fct.
@@ -185,9 +187,9 @@ class BayesianOptimization:
                 }
                 torch.save(results, f"{path}/results.pt")
 
-        if plot:
-            _path = f"{path}/convergence_plot.pdf" if path is not None else None
-            plot_convergence(self.params_samples, self.cost_samples, self.n_init, _path)
+        # if plot:
+        #     _path = f"{path}/convergence_plot.pdf" if path is not None else None
+        #     plot_convergence(self.params_samples, self.cost_samples, self.n_init, _path)
 
         return self.params_samples[np.argmin(self.cost_samples)]
 
@@ -218,7 +220,7 @@ class BayesianOptimization:
         if params_space.size(-1) > 1:
             # multiple params, multiple samples
             next_params = propose_location_multidim(
-                model, likelihood, bounds, n_restarts, batch_size
+                model, likelihood, eval_acq, bounds, n_restarts, batch_size
             )
         elif batch_size > 1:
             acquisition = eval_acq(params_space.numpy(), model, likelihood)

@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
 from tqdm import tqdm
+from scipy.optimize import minimize
 
 from train_utils import get_net_and_optim
 from super_resolution import super_resolution
@@ -98,6 +99,8 @@ def initialize_model(train_x: Tensor,
         GP model and corresponding likelihood
     """
 
+    train_x = train_x.reshape((train_y.size(0), -1))
+
     if isinstance(noise_prior, float):
         likelihood = FixedNoiseGaussianLikelihood(
             noise=torch.ones_like(train_x) * noise_prior
@@ -121,6 +124,7 @@ def initialize_model(train_x: Tensor,
     for i in pbar:
         optimizer.zero_grad()
         output = model(train_x.double())
+
         loss = -mll(output, train_y)
         loss.backward()
         optimizer.step()
@@ -161,8 +165,8 @@ def expected_improvement(model: ExactGP,
         pred = likelihood(model(torch.from_numpy(params_space).double().to(device)))
         pred_sample = likelihood(model(params_samples.double().to(device)))
 
-    mu, sigma = pred.mean.cpu().numpy(), pred.stddev.cpu().numpy()
-    mu_sample = pred_sample.mean.cpu().numpy()
+    mu, sigma = pred.mean.detach().cpu().numpy(), pred.stddev.detach().cpu().numpy()
+    mu_sample = pred_sample.mean.detach().cpu().numpy()
 
     sigma = sigma.reshape(-1, 1)
 
@@ -209,15 +213,16 @@ def propose_location_multidim(model: ExactGP,
     # Find the best optimum by starting from n_restart different random points.
     for x0 in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, bounds.shape[0])):
         res = minimize(min_obj, x0=x0, bounds=bounds, method='L-BFGS-B')
-        results.append([res.fun[0], res.x[0]])
+        results.append([res.fun[0]] + res.x.tolist())
         # if res.fun < min_val:
         #     min_val = res.fun[0]
         #     min_x = res.x
     # return min_x.tolist()#.reshape(1, -1)
-    results = np.array(results) * -1
-    acq_peaks_idx = find_peaks_cwt(results[:,0], np.arange(1, 10))
-    acq_peaks = results[:,1][acq_peaks_idx]
-    return np.sort(acq_peaks)[-batch_size:].to_list()
+    results = np.array(results)
+    acq_peaks_idx = find_peaks_cwt(results[:,0] * -1, np.arange(1, 10))
+    acq_peaks = results[:,1:][acq_peaks_idx]
+
+    return torch.tensor(acq_peaks[-batch_size:].tolist())
 
 
 def plot_optimization(model: ExactGP,
@@ -463,6 +468,7 @@ class BatchedDIPProblem(Module):
         optim_specs = self.optim_specs.copy()
 
         for i, param in enumerate(self.params):
+            # p = float(single_params[i].item() if isinstance(single_params) float(single_params[i])
             if param in self.optim_params:
                 optim_specs[param] = float(single_params[i])
             else:

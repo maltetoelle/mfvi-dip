@@ -1,22 +1,26 @@
 {
  "net_specs": {
   "prior_mu": 0.0,
-  "kl_type": "forward",
-  "beta": 1e-6
+  "kl_type": "forward"
  },
  "optim_specs": {
-  "lr": 0.01
+  "lr": 5e-3
  },
  "parameter": [
   {
    "name": "prior_sigma",
    "bounds": [0.01, 0.4]
+  },
+  {
+   "name": "beta",
+   "bounds": [1e-10, 1e-4]
   }
  ],
- "net_params": ["prior_sigma"],
+ "net_params": ["prior_sigma", "beta"],
  "optim_params": [],
  "initial_parameter": {
-  "prior_sigma": [0.075, 0.175, 0.275, 0.375]
+  "prior_sigma": [0.075, 0.175, 0.275, 0.375],
+  "beta": [5e-10, 5e-8, 5e-6, 5e-4]
  },
  "lengthscale_prior": {
   "concentration": 0.05,
